@@ -1,28 +1,28 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2013, 2014 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 60 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of JSONAlchemy.
+# Copyright (C) 2013, 2014, 2015 CERN.
+#
+# JSONAlchemy is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# JSONAlchemy is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with JSONAlchemy; if not, write to the Free Software Foundation, Inc.,
+# 60 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """Producer parser extension."""
 
 from pyparsing import Suppress, OneOrMore, Word, alphanums, nestedExpr, \
     originalTextFor, Keyword
 
-from invenio.modules.jsonalchemy.parser import FieldBaseExtensionParser, \
+from jsonalchemy.parser import FieldBaseExtensionParser, \
     FieldParser, PYTHON_ALLOWED_EXPR, indentedBlock
 
 
@@ -54,7 +54,7 @@ class ProducerParser(FieldBaseExtensionParser):
     To view the list of possible producer, check the `producer` folder inside
     jsonext or simply::
 
-        >>> from invenio.modules.jsonalchemy.registry import producers
+        >>> from jsonalchemy.registry import producers
         >>> dict(producers)
 
     """
@@ -77,12 +77,12 @@ class ProducerParser(FieldBaseExtensionParser):
                 ).setResultsName('producer')
 
     @classmethod
-    def create_element(cls, rule, namespace):
+    def create_element(cls, rule, metadata):
         """Prepare the list of producers with their names and parameters."""
         id_ = rule.field['json_id']
 
         producers = {} if not rule.extend else \
-            FieldParser.field_definitions(namespace)[id_].get('producer', {})
+            metadata.field_parser.field_definitions()[id_].get('producer', {})
         for producer in rule.producer:
             if producer['code'] not in producers:
                 producers[producer['code']] = []

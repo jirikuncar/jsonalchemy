@@ -1,27 +1,27 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2014 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of JSONAlchemy.
+# Copyright (C) 2014, 2015 CERN.
+#
+# JSONAlchemy is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# JSONAlchemy is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with JSONAlchemy; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from pyparsing import Keyword, originalTextFor, nestedExpr
 
-from invenio.base.utils import try_to_eval
+from jsonalchemy.utils import try_to_eval
 
-from invenio.modules.jsonalchemy.parser import \
+from jsonalchemy.parser import \
     DecoratorOnEvalBaseExtensionParser
 
 
@@ -52,18 +52,17 @@ class OnlyIfMasterValueParser(DecoratorOnEvalBaseExtensionParser):
                     lambda toks: toks[0])
 
     @classmethod
-    def create_element(cls, rule, field_def, content, namespace):
+    def create_element(cls, rule, field_def, content, metadata):
         """Simply return the list of boolean expressions."""
         return compile(content, '', 'eval')
 
     @classmethod
-    def evaluate(cls, value, namespace, args):
+    def evaluate(cls, value, metadata, args):
         """Evaluate ``args`` with the master value from the input.
 
         :returns: a boolean depending on evaluated ``value``.
         """
-        from invenio.modules.jsonalchemy.registry import functions
-        evaluated = try_to_eval(args, functions(namespace), value=value)
+        evaluated = try_to_eval(args, metadata.functions, value=value)
         if not isinstance(evaluated, (list, tuple)):
             return evaluated
         else:

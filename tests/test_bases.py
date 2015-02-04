@@ -1,100 +1,71 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2014, 2015 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of JSONAlchemy.
+# Copyright (C) 2014, 2015 CERN.
+#
+# JSONAlchemy is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# JSONAlchemy is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with JSONAlchemy; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """Unit tests for the JSONAlchemy bases."""
 
+import sys
+
 from datetime import datetime
-from flask.ext.registry import PkgResourcesDirDiscoveryRegistry, \
-    ImportPathRegistry, RegistryProxy
+from os.path import dirname, realpath
+from testext import functions
+from unittest import TestCase
 
-from invenio.base.wrappers import lazy_import
-from invenio.testsuite import make_test_suite, run_test_suite, InvenioTestCase
+from jsonalchemy.parser import (
+    ModelParser, guess_legacy_field_names, get_producer_rules
+)
+from jsonalchemy.reader import translate
+from jsonalchemy.registry import MetaData
+from jsonalchemy.wrappers import SmartJson
 
-Field_parser = lazy_import('invenio.modules.jsonalchemy.parser:FieldParser')
-Model_parser = lazy_import('invenio.modules.jsonalchemy.parser:ModelParser')
-guess_legacy_field_names = lazy_import(
-    'invenio.modules.jsonalchemy.parser:guess_legacy_field_names')
-get_producer_rules = lazy_import(
-    'invenio.modules.jsonalchemy.parser:get_producer_rules')
-
-TEST_PACKAGE = 'invenio.modules.jsonalchemy.testsuite'
-
-test_registry = RegistryProxy('testsuite', ImportPathRegistry,
-                              initial=[TEST_PACKAGE])
-
-field_definitions = lambda: PkgResourcesDirDiscoveryRegistry(
-    'fields', registry_namespace=test_registry)
-model_definitions = lambda: PkgResourcesDirDiscoveryRegistry(
-    'models', registry_namespace=test_registry)
+sys.path.append(dirname(realpath(__file__)))
 
 
-def clean_field_model_definitions():
-    Field_parser._field_definitions = {}
-    Field_parser._legacy_field_matchings = {}
-    Model_parser._model_definitions = {}
-
-
-class RegistryMixin(object):
+class TestVersionable(TestCase):
 
     def setUp(self):
-        clean_field_model_definitions()
-        self.app.extensions['registry'][
-            'testsuite.fields'] = field_definitions()
-        self.app.extensions['registry'][
-            'testsuite.models'] = model_definitions()
-        list(self.app.extensions['registry'][
-            'testsuite.fields'])
-        list(self.app.extensions['registry'][
-            'testsuite.models'])
-
-    def tearDown(self):
-        clean_field_model_definitions()
-        del self.app.extensions['registry']['testsuite.fields']
-        del self.app.extensions['registry']['testsuite.models']
-        del self.app.extensions['registry']['testsuite']
-
-
-class TestVersionable(RegistryMixin, InvenioTestCase):
+        self.metadata = MetaData(['jsonalchemy.jsonext', 'testext'])
+        self.model_parser = ModelParser(self.metadata)
+        self.field_parser = self.model_parser.field_parser
 
     def test_versionable_base(self):
         """Versionable - model creation"""
-        from invenio.modules.jsonalchemy.jsonext.engines import memory
-
-        self.app.config['_VERSIONABLE_ENGINE'] = memory.MemoryStorage
-        from invenio.modules.jsonalchemy.wrappers import SmartJson
-        from invenio.modules.jsonalchemy.reader import Reader
+        from jsonalchemy.jsonext.engines import memory
+        storage = {}
 
         class _VersionableJson(SmartJson):
-            __storagename__ = '_versionable'
+
+            storage_engine = memory.MemoryStorage(database=storage)
 
             @classmethod
             def create(cls, data, model='test_versionable',
                        master_format='json', **kwargs):
-                document = Reader.translate(
+                document = translate(
                     data, cls, master_format=master_format,
-                    model=model, namespace='testsuite', **kwargs)
+                    model=model, metadata=self.metadata, **kwargs)
                 cls.storage_engine.save_one(document.dumps())
+                document.bind(self.metadata)
                 return document
 
             @classmethod
             def get_one(cls, _id):
-                return cls(cls.storage_engine.get_one(_id))
+                return cls(cls.storage_engine.get_one(_id),
+                           metadata=self.metadata)
 
             def _save(self):
                 try:
@@ -123,17 +94,19 @@ class TestVersionable(RegistryMixin, InvenioTestCase):
         self.assertTrue(v1['_id'] in v_older['newer_version'])
 
 
-class TestHidden(RegistryMixin, InvenioTestCase):
+class TestHidden(TestCase):
+
+    def setUp(self):
+        self.metadata = MetaData(['jsonalchemy.jsonext', 'testext'])
+        self.model_parser = ModelParser(self.metadata)
+        self.field_parser = self.model_parser.field_parser
 
     def test_dumps_hidden(self):
-        from invenio.modules.jsonalchemy.wrappers import SmartJson
-        from invenio.modules.jsonalchemy.reader import Reader
-
         data = {'title': 'Test Title'}
 
-        document = Reader.translate(
+        document = translate(
             data, SmartJson, master_format='json',
-            model='test_hidden', namespace='testsuite')
+            model='test_hidden', metadata=self.metadata)
 
         json = document.dumps()
         self.assertTrue('title' in json)
@@ -142,9 +115,3 @@ class TestHidden(RegistryMixin, InvenioTestCase):
         json = document.dumps(filter_hidden=True)
         self.assertTrue('title' in json)
         self.assertFalse('hidden_basic' in json)
-
-
-TEST_SUITE = make_test_suite(TestVersionable, TestHidden)
-
-if __name__ == '__main__':
-    run_test_suite(TEST_SUITE)

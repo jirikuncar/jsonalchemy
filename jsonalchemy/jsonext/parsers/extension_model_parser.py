@@ -1,40 +1,44 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2014 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of JSONAlchemy.
+# Copyright (C) 2014, 2015 CERN.
+#
+# JSONAlchemy is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# JSONAlchemy is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with JSONAlchemy; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-from pyparsing import Keyword, OneOrMore, quotedString, restOfLine, removeQuotes
-from werkzeug.utils import import_string
+import importlib
 
-from invenio.base.utils import try_to_eval
+from pyparsing import (
+    Keyword, OneOrMore, quotedString, removeQuotes, restOfLine,
+)
 
-from invenio.modules.jsonalchemy.parser import ModelBaseExtensionParser, \
-    indentedBlock
+from jsonalchemy.utils import try_to_eval
+from jsonalchemy.parser import (
+    ModelBaseExtensionParser, indentedBlock,
+)
 
 
 class ExtensionModelParser(ModelBaseExtensionParser):  # pylint: disable=W0232
-    """
-    Handles the extension section in the model definitions::
+    """Handle the extension section in the model definitions.
+
+    .. code-block:: text
 
         fields:
             ....
             extensions:
                 'invenio.modules.records.api:RecordIter'
-                'invenio.modules.jsonalchemy.bases:Versinable'
+                'jsonalchemy.bases:Versinable'
 
     """
 
@@ -42,20 +46,20 @@ class ExtensionModelParser(ModelBaseExtensionParser):  # pylint: disable=W0232
 
     @classmethod
     def parse_element(cls, indent_stack):
-        """Sets ``extensions`` attribute to the rule definition"""
+        """Set ``extensions`` attribute to the rule definition."""
         import_line = quotedString.setParseAction(removeQuotes) + restOfLine
         return (Keyword('extensions:').suppress() +
                 indentedBlock(OneOrMore(import_line), indent_stack)
                 ).setResultsName('extensions')
 
     @classmethod
-    def create_element(cls, rule, namespace):  # pylint: disable=W0613
-        """Simply returns the list of extensions"""
+    def create_element(cls, rule, metadata):  # pylint: disable=W0613
+        """Simply return the list of extensions."""
         return [e.strip() for e in rule.extensions.asList() if e]
 
     @classmethod
     def inherit_model(cls, current_value, base_value):
-        """Extends the list of extensions with the new ones without repeating"""
+        """Extend list of extensions with the new ones without repeating."""
         if current_value is None:
             return base_value
         elif base_value is None:
@@ -64,24 +68,30 @@ class ExtensionModelParser(ModelBaseExtensionParser):  # pylint: disable=W0232
 
     @classmethod
     def extend_model(cls, current_value, new_value):
-        """Like inherit"""
+        """Like inherit."""
         return cls.inherit_model(current_value, new_value)
 
     @classmethod
     def add_info_to_field(cls, info):
-        """Adds the list of extensions to the model information"""
+        """Adds the list of extensions to the model information."""
         return info
 
     @classmethod
     def evaluate(cls, obj, args):
-        """Extend the incoming object with all the new things from args"""
+        """Extend the incoming object with all the new things from args."""
         if args is None:
             return
         extensions = []
         for ext in args:
             try:
-                extensions.append(import_string(ext))
-            except ImportError:
+                if ':' in ext:
+                    package, attr = ext.split(':')
+                else:
+                    package, attr = ext.rsplit('.', 1)
+                extensions.append(
+                    getattr(importlib.import_module(package), attr)
+                )
+            except (ImportError, AttributeError, KeyError):
                 extensions.append(try_to_eval(ext))
         extensions.append(obj.__class__)
 

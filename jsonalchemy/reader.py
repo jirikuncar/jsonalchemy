@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2013, 2014, 2015 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of JSONAlchemy.
+# Copyright (C) 2013, 2014, 2015 CERN.
+#
+# JSONAlchemy is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# JSONAlchemy is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with JSONAlchemy; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """Default JSONAlchemy reader.
 
@@ -23,22 +23,22 @@ It provides the common functionality to use by the readers.
 Typically this class should be used as a factory to create the concrete
 reader depending of the master format of the input.
 
-    >>> from invenio.modules.jsonalchemy.reader import Reader
-    >>> from invenio.modules.readers.api import Record
+    >>> from jsonalchemy.reader import Reader
+    >>> from invenio.modules.records.api import Record
     >>> record = Reader.translate(blob, 'marc', Record, model=['picture'])
 """
 import itertools
 import datetime
 import six
 
-from invenio.base.utils import try_to_eval
+from jsonalchemy.utils import try_to_eval
 
 from .errors import ReaderException
 from .parser import FieldParser, ModelParser
-from .registry import functions, readers
+from .registry import MetaData
 
 
-def split_blob(blob, master_format, slice_size=0, **kwargs):
+def split_blob(blob, master_format, slice_size=0, metadata=None, **kwargs):
     """TODO: Docstring for split_blob.
 
     :params blob: todo
@@ -46,8 +46,9 @@ def split_blob(blob, master_format, slice_size=0, **kwargs):
     :params slice_size: todo
     :params kwargs: todo
     :returns: todo
-
     """
+    metadata = metadata or MetaData()
+
     def grouper(n, iterable):
         iter_ = iter(iterable)
         while True:
@@ -56,30 +57,70 @@ def split_blob(blob, master_format, slice_size=0, **kwargs):
                 return
             yield chunk
     if slice_size == 0:
-        return readers[master_format].split_blob(blob, **kwargs)
+        return metadata.readers[master_format].split_blob(blob, **kwargs)
     else:
-        return grouper(slice_size,
-                       readers[master_format].split_blob(blob, **kwargs))
+        return grouper(
+            slice_size,
+            metadata.readers[master_format].split_blob(blob, **kwargs))
+
+
+def translate(blob, json_class=None, master_format='json', metadata=None,
+              **kwargs):
+    """Transform the incoming blob into a json structure (``json_class``).
+
+    It uses the rules described in the field and model definitions.
+
+    :param blob: incoming blob (like MARC)
+    :param json_class: Any subclass of
+        :class:`~jsonalchemy.wrappers.SmartJson`
+    :param master_format: Master format of the input blob.
+    :param kwargs: parameter to pass to json_class
+
+    :return: New object of ``json_class`` type containing the result of the
+        translation
+    """
+    from .wrappers import SmartJson
+    json_class = json_class or SmartJson
+    metadata = metadata or MetaData()
+
+    if blob is None:
+        raise ReaderException(
+            "To perform a 'translate' operation a blob is needed")
+
+    if not issubclass(json_class, SmartJson):
+        raise ReaderException("The json class must be of type 'SmartJson'")
+
+    json = json_class(master_format=master_format, metadata=metadata, **kwargs)
+    # resorve reader class from metadata
+    cls = metadata.readers[master_format]
+    reader = cls(json, blob=blob, metadata=metadata, **kwargs)
+    # fill up with all possible fields
+    fields = reader.model_parser.resolve_models(
+        json.model_info.names).get('fields')
+
+    reader.add(fields, blob, metadata=metadata, fetch_model_info=True)
+    return json
 
 
 class Reader(object):  # pylint: disable=R0921
 
     """Base reader."""
 
-    def __new__(cls, json, blob=None, **kwargs):  # pylint: disable=W0613
-        """Implement object's instantiation."""
-        try:
-            master_format = json.additional_info.master_format
-            return super(Reader, cls).__new__(readers[master_format])
-        except KeyError as e:
-            raise KeyError("Not reader found for '%s'" % (e.message, ))
-
-    def __init__(self, json, blob=None, **kwargs):
+    def __init__(self, json, blob=None, metadata=None, **kwargs):
         """Implement initializer for the class."""
         self._blob = blob if blob is not None or kwargs.get('no_blob', False) \
             else json.get_blob()
         self._json = json
         self._parsed = []
+        self.metadata = metadata or MetaData()
+
+        # FIXME
+        self._json._reader = self
+
+        self.model_parser = ModelParser(self.metadata)
+        self.field_parser = self.model_parser.field_parser
+
+        self._json.bind(metadata)
 
     @staticmethod
     def split_blob(blob, schema=None, **kwargs):
@@ -90,38 +131,8 @@ class Reader(object):  # pylint: disable=R0921
         """
         raise NotImplementedError()
 
-    @classmethod
-    def translate(cls, blob, json_class, master_format='json', **kwargs):
-        """Transform the incoming blob into a json structure (``json_class``).
-
-        It uses the rules described in the field and model definitions.
-
-        :param blob: incoming blob (like MARC)
-        :param json_class: Any subclass of
-            :class:`~invenio.modules.jsonalchemy.wrappers.SmartJson`
-        :param master_format: Master format of the input blob.
-        :param kwargs: parameter to pass to json_class
-
-        :return: New object of ``json_class`` type containing the result of the
-            translation
-        """
-        from .wrappers import SmartJson
-        if blob is None:
-            raise ReaderException(
-                "To perform a 'translate' operation a blob is needed")
-        if not issubclass(json_class, SmartJson):
-            raise ReaderException("The json class must be of type 'SmartJson'")
-
-        json = json_class(master_format=master_format, **kwargs)
-        # fill up with all possible fields
-        fields = ModelParser.resolve_models(json.model_info.names,
-                                            json.additional_info.namespace
-                                            ).get('fields')
-        cls.add(json, fields, blob, fetch_model_info=True)
-        return json
-
-    @classmethod
-    def add(cls, json, fields, blob=None, fetch_model_info=False):
+    def add(self, fields, blob=None, metadata=None,
+            fetch_model_info=False):
         """Add the list of fields to the json structure.
 
         If fields is ``None`` it adds all the possible fields from the current
@@ -131,28 +142,25 @@ class Reader(object):  # pylint: disable=R0921
         :param fields: Dict of fields to be added to the json structure
             containing field_name:json_id
         """
-        reader = cls(json, blob)
-        reader._prepare_blob()
+        self._prepare_blob()
 
         if fetch_model_info:
-            reader._process_model_info()
+            self._process_model_info()
 
         if isinstance(fields, six.string_types):
             fields = (fields, )
         if isinstance(fields, (list, tuple)):
-            model_fields = ModelParser.resolve_models(
-                json.model_info.names,
-                json.additional_info.namespace).get('fields')
+            model_fields = self.model_parser.resolve_models(
+                self._json.model_info.names).get('fields')
             fields = dict(
                 (field_name, model_fields.get(field_name, field_name))
                 for field_name in fields)
 
         for json_id, field_name in six.iteritems(fields):
-            reader._unpack_rule(json_id, field_name)
-        reader._post_process_json()
+            self._unpack_rule(json_id, field_name)
+        self._post_process_json()
 
-    @classmethod
-    def set(cls, json, field, value=None, set_default_value=False):
+    def set(self, field, value=None, set_default_value=False):
         """Set new field value to json object.
 
         When adding a new field to the json object finds as much information
@@ -167,31 +175,20 @@ class Reader(object):  # pylint: disable=R0921
         """
         reader = None
         json_id = None
-        if field not in json.meta_metadata:
+        if field not in self._json.meta_metadata:
             # We don't have any meta_metadata, look for it.
-            reader = cls(json=json, no_blob=True)
-            json_id = \
-                ModelParser.resolve_models(json.model_info,
-                                           json.additional_info.namespace
-                                           )['fields'].get(field, field)
-            json['__meta_metadata__'][field] = \
-                reader._find_field_metadata(json_id, field)
+            json_id = self.model_parser.resolve_models(
+                self._json.model_info)['fields'].get(field, field)
+            self._json['__meta_metadata__'][field] = self._find_field_metadata(
+                json_id, field)
 
         if value:
-            json[field] = value
+            self._json[field] = value
         elif set_default_value:
-            if reader is None:
-                reader = cls(json=json, no_blob=True)
-                json_id = \
-                    ModelParser.resolve_models(json.model_info,
-                                               json.additional_info.namespace
-                                               )['fields'].get(field, field)
+            self._set_default_value(json_id, field)
+            self._evaluate_after_decorators(field)
 
-            reader._set_default_value(json_id, field)
-            reader._evaluate_after_decorators(field)
-
-    @classmethod
-    def update(cls, json, fields, blob=None, update_db=False):
+    def update(self, fields, blob=None, update_json=False):
         """
         Update the fields given from the json structure.
 
@@ -203,22 +200,23 @@ class Reader(object):  # pylint: disable=R0921
         :param save: If set to ``True`` a 'soft save' will be performed with
             the changes.
         """
-        reader = cls(json=json, blob=blob if blob else json.get_blob())
-        reader._update(fields)
+        if blob:
+            self._blob = blob
+        self._update(fields)
 
-        if update_db:
-            json.update()
+        if update_json:
+            self._json.update()
 
-    @classmethod
-    def process_model_info(cls, json):
+    def process_model_info(self, json):
         """Process model information.
 
         Fetches all the possible information about the current models and
         applies all the model extensions `evaluate` methods if any extension is
         used.
         """
-        reader = cls(json, no_blob=True)
-        reader._process_model_info()
+        assert id(self._json) == id(json)
+        self._json = json
+        self._process_model_info()
 
     @classmethod
     def update_meta_metadata(cls, json, blob=None, fields=None, section=None,
@@ -242,13 +240,14 @@ class Reader(object):  # pylint: disable=R0921
             self._json['__meta_metadata__']['__model_info__']['names'] = \
                 self._guess_model_from_input()
 
-        model = ModelParser.resolve_models(
-            self._json.model_info.names, self._json.additional_info.namespace)
+        model = self.model_parser.resolve_models(
+            self._json.model_info.names)
 
         for key, value in six.iteritems(model):
             if key in ('fields', 'bases'):
                 continue
-            ModelParser.parser_extensions()[key].evaluate(self._json, value)
+            self.model_parser.parser_extensions()[key].evaluate(self._json,
+                                                                value)
 
     def _guess_model_from_input(self):
         """Dummy method to guess the model of a given input.
@@ -303,8 +302,7 @@ class Reader(object):  # pylint: disable=R0921
             ``False`` otherwise.
         """
         try:
-            rule = FieldParser.field_definitions(
-                self._json.additional_info.namespace)[json_id]
+            rule = self.field_parser.field_definitions()[json_id]
         except KeyError:
             self._json.continuable_errors.append(
                 "Error - Unable to find '%s' field definition" % (json_id, ))
@@ -352,7 +350,7 @@ class Reader(object):  # pylint: disable=R0921
                     try:
                         value = try_to_eval(
                             field_def['function'],
-                            functions(self._json.additional_info.namespace),
+                            self.metadata.functions,
                             value=element, self=self._json)
                         self._remove_none_values(value)
                         info = self._find_field_metadata(json_id, field_name,
@@ -385,7 +383,7 @@ class Reader(object):  # pylint: disable=R0921
                 try:
                     value = try_to_eval(
                         field_def['function'],
-                        functions(self._json.additional_info.namespace),
+                        self.metadata.functions,
                         self=self._json)
                     self._remove_none_values(value)
                     info = self._find_field_metadata(json_id, field_name,
@@ -414,8 +412,7 @@ class Reader(object):  # pylint: disable=R0921
             return None
 
         value = set_default_value(
-            field_name, FieldParser.field_definitions(
-                self._json.additional_info.namespace)[json_id]
+            field_name, self.field_parser.field_definitions()[json_id]
             .get('schema', {}).get(json_id, {}))
         if value is not None:
             if field_name not in self._json._dict_bson:
@@ -453,9 +450,8 @@ class Reader(object):  # pylint: disable=R0921
         if field_name not in self._json._dict_bson:
             return
 
-        schema = FieldParser.field_definitions(
-            self._json.additional_info.namespace)[json_id]\
-            .get('schema', {}).get(json_id, {})
+        schema = self.field_parser.field_definitions()[json_id].get(
+            'schema', {}).get(json_id, {})
         set_default_type(field_name, schema)
 
     def _remove_none_values(self, obj):
@@ -496,8 +492,7 @@ class Reader(object):  # pylint: disable=R0921
         :return: dictionary
         """
         try:
-            rule = FieldParser.field_definitions(
-                self._json.additional_info.namespace)[json_id]
+            rule = self.field_parser.field_definitions()[json_id]
         except KeyError:
             self._json.continuable_errors.append(
                 "Adding a new field '%s' ('%s') without definition"
@@ -541,7 +536,7 @@ class Reader(object):  # pylint: disable=R0921
         # Decorator extensions
         info['after'] = dict()
         for name, parser in \
-                six.iteritems(FieldParser.decorator_after_extensions()):
+                six.iteritems(self.field_parser.decorator_after_extensions()):
             try:
                 ext = parser.add_info_to_field(
                     json_id, info,
@@ -556,7 +551,8 @@ class Reader(object):  # pylint: disable=R0921
 
         # Field extensions
         info['ext'] = dict()
-        for name, parser in six.iteritems(FieldParser.field_extensions()):
+        for name, parser in six.iteritems(
+                self.field_parser.field_extensions()):
             try:
                 ext = parser.add_info_to_field(json_id, rule)
                 if ext is not None:
@@ -582,7 +578,7 @@ class Reader(object):  # pylint: disable=R0921
     def _evaluate_before_decorators(self, field_def):
         """Evaluate all the before decorators (they must return a boolean)."""
         for name, content in six.iteritems(field_def['decorators']['before']):
-            if not FieldParser.decorator_before_extensions()[name]\
+            if not self.field_parser.decorator_before_extensions()[name]\
                     .evaluate(self, content):
                 return False
         return True
@@ -590,9 +586,8 @@ class Reader(object):  # pylint: disable=R0921
     def _evaluate_on_decorators(self, field_def, master_value):
         """Evaluate all the on decorators (they must return a boolean."""
         for name, content in six.iteritems(field_def['decorators']['on']):
-            if not FieldParser.decorator_on_extensions()[name]\
-                    .evaluate(master_value,
-                              self._json.additional_info.namespace, content):
+            if not self.field_parser.decorator_on_extensions()[name]\
+                    .evaluate(master_value, self.metadata, content):
                 return False
         return True
 
@@ -602,9 +597,11 @@ class Reader(object):  # pylint: disable=R0921
             return
         for ext, args in \
                 six.iteritems(self._json.meta_metadata[field_name]['after']):
-            FieldParser.decorator_after_extensions()[ext]\
+            if self._json._metadata is None:
+                self._json.bind(self.metadata)
+            self.field_parser.decorator_after_extensions()[ext]\
                 .evaluate(self._json, field_name, 'set', args)
-        for ext, args in \
-                six.iteritems(self._json.meta_metadata[field_name]['ext']):
-            FieldParser.field_extensions()[ext]\
+        for ext, args in six.iteritems(
+                self._json.meta_metadata[field_name]['ext']):
+            self.field_parser.field_extensions()[ext]\
                 .evaluate(self._json, field_name, 'set', args)

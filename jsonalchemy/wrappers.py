@@ -1,94 +1,294 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2013, 2014, 2015 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of JSONAlchemy.
+# Copyright (C) 2013, 2014, 2015 CERN.
+#
+# JSONAlchemy is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# JSONAlchemy is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with JSONAlchemy; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """JSONAlchemy wrappers."""
 
 import copy
+import re
 import six
 
-from flask import current_app
-from werkzeug.utils import import_string
+from collections import MutableMapping
+from six import iteritems
 
-from invenio.utils.memoise import memoize
-from invenio.utils.datastructures import DotableDict, SmartDict
-
-from .parser import FieldParser, ModelParser
+from .parser import ModelParser
 from .reader import Reader
-from .registry import contexts, producers
 
 
-class StorageEngine(type):
+class SmartDict(object):
 
-    """Storage metaclass for parsing application config."""
+    """This dictionary allows to do some 'smart queries' to its content.
 
-    __storage_engine_registry__ = []
+    Example:
 
-    def __init__(cls, name, bases, dct):
-        """Register cls to type registry."""
-        if hasattr(cls, '__storagename__'):
-            cls.__storage_engine_registry__.append(cls)
-        super(StorageEngine, cls).__init__(name, bases, dct)
+    .. code-block:: python
 
-    @property
-    def storage_engine(cls):
-        """Return an instance of storage engine defined in application config.
+        >>> d = SmartDict()
+        >>> d['foo'] = {'a': 'world', 'b':'hello'}
+        >>> d['a'] = [ {'b':1}, {'b':2}, {'b':3} ]
+        >>> d['a']
+        [ {'b':1}, {'b':2}, {'b':3} ]
+        >>> d['a[0]']
+        {'b':1}
+        >>> d['a.b']
+        [1,2,3]
+        >>> d['a[1:]']
+        [{'b':2}, {'b':3}]
 
-        It looks for key "ENGINE' prefixed by ``__storagename__.upper()`` for
-        example::
+    .. note::
+        You can't use the reserved words '.', '[', ']' like a key.
 
-            class Dummy(SmartJson):
-                __storagename__ = 'dummy'
+        .. code-block:: python
 
-        will look for key "DUMMY_ENGINE" and
-        "DUMMY_`DUMMY_ENGINE.__name__.upper()`" should contain dictionary with
-        keyword arguments of the engine defined in "DUMMY_ENGINE".
+            >>> d['.']
+            >>> d[']']
+            >>> d['.a']
+
+        It is also not recommended initialize `SmartDict` with keys from
+        within the list of reserved words.
+
+        .. code-block:: python
+
+            >>> d = SmartDict({'a': 3, 'b': {'.': 5}})
+    """
+
+    split_key_pattern = re.compile('\.|\[')
+    main_key_pattern = re.compile('\..*|\[.*')
+
+    def __init__(self, d=None):
+        self._dict = d if d is not None else dict()
+
+    def __getitem__(self, key):
+        """Return item as `dict.__getitem__` but using 'smart queries'.
+
+        .. note::
+            Accessing one value in a normal way, meaning d['a'], is almost as
+            fast as accessing a regular dictionary. But using the special
+            name convention is a bit slower than using the regular access:
+
+            .. code-block:: python
+
+                >>> %timeit x = dd['a[0].b']
+                100000 loops, best of 3: 3.94 us per loop
+                >>> %timeit x = dd['a'][0]['b']
+                1000000 loops, best of 3: 598 ns per loop
         """
-        storagename = cls.__storagename__.lower()
-        return cls._engine(storagename)
+        def getitem(k, v):
+            if isinstance(v, dict):
+                return v[k]
+            elif ']' in k:
+                k = k[:-1].replace('n', '-1')
+                # Work around for list indexes and slices
+                try:
+                    return v[int(k)]
+                except ValueError:
+                    return v[slice(*map(
+                        lambda x: int(x.strip()) if x.strip() else None,
+                        k.split(':')
+                    ))]
+            else:
+                tmp = []
+                for inner_v in v:
+                    tmp.append(getitem(k, inner_v))
+                return tmp
 
-    @staticmethod
-    @memoize
-    def _engine(storagename):
-        prefix = storagename.upper()
-        engine = current_app.config['{0}_ENGINE'.format(prefix)]
-        if isinstance(engine, six.string_types):
-            engine = import_string(engine)
+        # Check if we are using python regular keys
+        try:
+            return self._dict[key]
+        except KeyError:
+            pass
 
-        key = engine.__name__.upper()
-        kwargs = current_app.config.get('{0}_{1}'.format(prefix, key), {})
-        return engine(**kwargs)
+        keys = SmartDict.split_key_pattern.split(key)
+        value = self._dict
+        for k in keys:
+            value = getitem(k, value)
+        return value
+
+    def __setitem__(self, key, value, extend=False, **kwargs):
+        # check if the key is composed only by special chars
+        if key[0] in ['.', ']', '[']:
+            # this kind of key is not supported!
+            raise KeyError
+
+        if '.' not in key and ']' not in key and not extend:
+            self._dict[key] = value
+        else:
+            keys = SmartDict.split_key_pattern.split(key)
+            self.__setitem(self._dict, keys[0], keys[1:], value, extend)
+
+    def __delitem__(self, key):
+        """Delete item only from first level dictionary keys."""
+        del self._dict[key]
+
+    def __contains__(self, key):
+
+        if '.' not in key and '[' not in key:
+            return key in self._dict
+        try:
+            self[key]
+        except:
+            return False
+        return True
+
+    def __eq__(self, other):
+        return (isinstance(other, self.__class__)
+                and self._dict == other._dict)
+
+    def __iter__(self):
+        return iter(self._dict)
+
+    def __len__(self):
+        return len(self._dict)
+
+    def keys(self):
+        return self._dict.keys()
+
+    def items(self):
+        return self._dict.items()
+
+    def iteritems(self):
+        """Proxy to `dict.iteritems`."""
+        return iteritems(self._dict)
+
+    def iterkeys(self):
+        """Proxy to `dict.iterkeys`."""
+        return self._dict.iterkeys()
+
+    def itervalues(self):
+        """Proxy to `dict.itervalues`."""
+        return self._dict.itervalues()
+
+    def has_key(self, key):
+        """Return ``True`` if ``key`` is in dictionary."""
+        return key in self
+
+    def __repr__(self):
+        """Proxy to `dict.__repr__`."""
+        return repr(self._dict)
+
+    def __setitem(self, chunk, key, keys, value, extend=False):
+        """Helper function to fill up the dictionary."""
+        def setitem(chunk):
+            if keys:
+                return self.__setitem(chunk, keys[0], keys[1:], value, extend)
+            else:
+                return value
+
+        if key in ['.', ']']:
+            chunk[key] = value
+        elif ']' in key:  # list
+            key = int(key[:-1].replace('n', '-1'))
+            if extend:
+                if chunk is None:
+                    chunk = [None, ]
+                else:
+                    if not isinstance(chunk, list):
+                        chunk = [chunk, ]
+                    if key != -1:
+                        chunk.insert(key, None)
+                    else:
+                        chunk.append(None)
+            else:
+                if chunk is None:
+                    chunk = [None, ]
+            chunk[key] = setitem(chunk[key])
+        else:  # dict
+            if extend:
+                if chunk is None:
+                    chunk = {}
+                    chunk[key] = None
+                    chunk[key] = setitem(chunk[key])
+                elif key not in chunk:
+                    chunk[key] = None
+                    chunk[key] = setitem(chunk[key])
+                else:
+                    if keys:
+                        chunk[key] = setitem(chunk[key])
+                    else:
+                        if not isinstance(chunk[key], list):
+                            chunk[key] = [chunk[key], ]
+                        chunk[key].append(None)
+                        chunk[key][-1] = setitem(chunk[key][-1])
+            else:
+                if chunk is None:
+                    chunk = {}
+                if key not in chunk:
+                    chunk[key] = None
+                chunk[key] = setitem(chunk[key])
+
+        return chunk
+
+    def get(self, key, default=None):
+        """Return value for given ``key`` or ``default`` value."""
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def set(self, key, value, extend=False, **kwargs):
+        """Extended standard set function."""
+        self.__setitem__(key, value, extend, **kwargs)
+
+    def update(self, E, **F):
+        """Proxy `dict` update method."""
+        self._dict.update(E, **F)
+
+MutableMapping.register(SmartDict)
 
 
-@six.add_metaclass(StorageEngine)
+class DotableDict(dict):
+
+    """Make nested python dictionaries accessable using dot notation.
+
+    Example:
+
+    .. code-block:: python
+
+        >>> dotable = DotableDict({'a': [{'b': 3, 'c': 5}]})
+        >>> dotable.a
+        ...  [{'b': 3, 'c': 5}]
+    """
+
+    def __getattr__(self, key):
+        """Return value from dictionary.
+
+        .. todo:: allow ``dotable.a[0].b``
+        """
+        return self[key]
+
+    def __setattr__(self, key, value):
+        """Set value for given key in dictionary."""
+        self[key] = value
+
+
 class SmartJson(SmartDict):
 
     """Base class for Json structures."""
 
     def __init__(self, json=None, set_default_values=False,
-                 process_model_info=False, **kwargs):
+                 process_model_info=False, metadata=None, **kwargs):
         """If no JSON, a new structure will be created.
 
         Typically the JSON structure needs a few mandatory fields and subfields
         that are created here, the final JSON should look like this::
 
             {
-                '__meta_metadata': {
+                '__meta_metadata__': {
                     '__additional_info__': {...},
                     '__model_info__': {'model_names': [...], ....},
                     '__aliases__': {...},
@@ -122,6 +322,7 @@ class SmartJson(SmartDict):
         """
         super(SmartJson, self).__init__(json)
         self._dict_bson = SmartDict()
+        self._metadata = metadata
 
         if not json or '__meta_metadata__' not in json:
             model_names = kwargs.get('model', ['__default__', ])
@@ -138,10 +339,27 @@ class SmartJson(SmartDict):
             self._dict['__meta_metadata__']['__continuable_errors__'] = list()
 
         if process_model_info:
-            Reader.process_model_info(self)
+            self.metadata.reader.process_model_info(self)
 
         if set_default_values:
             self.set_default_values()
+
+    @property
+    def metadata(self):
+        if self._metadata is None:
+            raise RuntimeError("SmartJSON has no binded metadata.")
+        return self._metadata
+
+    def bind(self, metadata):
+        self._metadata = metadata
+
+    @property
+    def reader(self):
+        if getattr(self, '_reader', None) is None:
+            cls = self.metadata.readers[self.additional_info['master_format']]
+            self._reader = cls(self, blob=self._dict_bson,
+                               metadata=self.metadata)
+        return self._reader
 
     @property
     def additional_info(self):
@@ -201,7 +419,7 @@ class SmartJson(SmartDict):
             return super(SmartJson, self).__getitem__(key)
         elif main_key in self._dict:
             if main_key not in self.meta_metadata:
-                Reader.set(self, main_key)
+                self.reader.set(main_key)
             action = kwargs.get('action', 'get')
             exclude = kwargs.get('exclude', [])
             if 'extensions' not in exclude:
@@ -209,15 +427,15 @@ class SmartJson(SmartDict):
                         six.iteritems(self.meta_metadata[main_key]['ext']):
                     if ext in exclude:
                         continue
-                    FieldParser.field_extensions()[ext]\
-                        .evaluate(self, main_key, action, args)
+                    self.metadata.field_extensions[ext].evaluate(
+                        self, main_key, action, args)
             if 'decorators' not in exclude:
                 for ext, args in \
                         six.iteritems(self.meta_metadata[main_key]['after']):
                     if ext in exclude:
                         continue
-                    FieldParser.decorator_after_extensions()[ext]\
-                        .evaluate(self, main_key, action, args)
+                    self.metadata.decorator_after_extensions[ext].evaluate(
+                        self, main_key, action, args)
 
             return self._dict_bson[key]
         else:
@@ -257,7 +475,7 @@ class SmartJson(SmartDict):
             self._dict_bson.__setitem__(key, value, extend)
         # Othewise we need the meta_metadata
         else:
-            Reader.set(self, main_key)
+            self.reader.set(main_key)
             self._dict_bson.__setitem__(key, value, extend, **kwargs)
         action = kwargs.get('action', 'set')
         exclude = kwargs.get('exclude', [])
@@ -266,15 +484,15 @@ class SmartJson(SmartDict):
                     six.iteritems(self.meta_metadata[main_key]['after']):
                 if ext in exclude:
                     continue
-                FieldParser.decorator_after_extensions()[ext]\
-                    .evaluate(self, main_key, action, args)
+                self.metadata.decorator_after_extensions[ext].evaluate(
+                    self, main_key, action, args)
         if 'extensions' not in exclude:
             for ext, args in \
                     six.iteritems(self.meta_metadata[main_key]['ext']):
                 if ext in exclude:
                     continue
-                FieldParser.field_extensions()[ext]\
-                    .evaluate(self, main_key, action, args)
+                self.metadata.field_extensions[ext].evaluate(
+                    self, main_key, action, args)
 
     def __str__(self):
         """Representation of the object **without** the meta_metadata."""
@@ -408,7 +626,7 @@ class SmartJson(SmartDict):
         :return: It depends on each producer, see producer folder inside
             `jsonext`, typically `dict`.
         """
-        return producers[producer_code](self, fields=fields)
+        return self.metadata.producers[producer_code](self, fields=fields)
 
     def set_default_values(self, fields=None):
         """Set default value for the fields using the schema definition.
@@ -439,8 +657,8 @@ class SmartJson(SmartDict):
                 model_fields[field] = self.meta_metadata[field]['json_id']
         for json_id in model_fields.keys():
             try:
-                schema.update(FieldParser.field_definitions(
-                    self.additional_info.namespace)[json_id].get('schema', {}))
+                schema.update(self.metadata.field_definitions[json_id].get(
+                    'schema', {}))
             except (TypeError, KeyError):
                 pass
         _validator = validator(schema=schema)
@@ -468,10 +686,7 @@ class SmartJsonLD(SmartJson):
 
         :param context: context identifier
         """
-        try:
-            return contexts(self.additional_info.namespace)[context]
-        except KeyError:
-            return context
+        return self.metadata.contexts.get(context, context)
 
     def get_jsonld(self, context, new_context={}, format="full"):
         """Return the JSON-LD serialization.

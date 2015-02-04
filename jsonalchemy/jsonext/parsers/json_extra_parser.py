@@ -1,30 +1,28 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2013, 2014 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 60 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of JSONAlchemy.
+# Copyright (C) 2013, 2014, 2015 CERN.
+#
+# JSONAlchemy is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# JSONAlchemy is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with JSONAlchemy; if not, write to the Free Software Foundation, Inc.,
+# 60 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """JSON parser extension."""
 
 from pyparsing import Keyword, Literal
 
-from invenio.base.utils import try_to_eval
-
-from invenio.modules.jsonalchemy.registry import functions
-from invenio.modules.jsonalchemy.parser import FieldBaseExtensionParser, \
+from jsonalchemy.utils import try_to_eval
+from jsonalchemy.parser import FieldBaseExtensionParser, \
     PYTHON_ALLOWED_EXPR, indentedBlock
 
 
@@ -69,12 +67,12 @@ class JsonExtraParser(FieldBaseExtensionParser):
                 ).setResultsName('json_ext')
 
     @classmethod
-    def create_element(cls, rule, namespace):
+    def create_element(cls, rule, metadata):
         """Create the dictionary with the dump and load functions."""
         return {'loads': try_to_eval(rule.json_ext.loads,
-                                     functions(namespace)),
+                                     metadata.functions),
                 'dumps': try_to_eval(rule.json_ext.dumps,
-                                     functions(namespace))}
+                                     metadata.functions)}
 
     @classmethod
     def add_info_to_field(cls, json_id, rule):
@@ -88,7 +86,7 @@ class JsonExtraParser(FieldBaseExtensionParser):
     @classmethod
     def evaluate(cls, json, field_name, action, args):
         """Evaluate the dumps and loads functions depending on the action."""
-        from invenio.modules.jsonalchemy.parser import FieldParser
+        from jsonalchemy.parser import FieldParser
         if action == 'set':
             try:
                 json._dict[field_name] = reduce(

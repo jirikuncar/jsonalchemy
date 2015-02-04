@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2013, 2014 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of JSONAlchemy.
+# Copyright (C) 2013, 2014, 2015 CERN.
+#
+# JSONAlchemy is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# JSONAlchemy is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with JSONAlchemy; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """JSON storage engine interface."""
 
@@ -24,8 +24,8 @@ class Storage(object):
 
     """Default storage engine interface."""
 
-    #TODO: set return values on success and error and setup a log function
-    #TODO: create a query class to mimic SQLAlchemy query object
+    # TODO: set return values on success and error and setup a log function
+    # TODO: create a query class to mimic SQLAlchemy query object
 
     def __init__(self, model, **kargs):
         """
@@ -83,7 +83,7 @@ class Storage(object):
         """
         Return a dictionary of field values for field for the given ids.
 
-        As in :meth:`~invenio.modules.jsonalchemy.storage.Storage.get_field_values`
+        As in :meth:`~jsonalchemy.storage.Storage.get_field_values`
         but in this case returns a dictionary with each of
         the fields and the list of field values.
         """

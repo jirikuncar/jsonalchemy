@@ -1,30 +1,28 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2014 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of JSONAlchemy.
+# Copyright (C) 2014, 2015 CERN.
+#
+# JSONAlchemy is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# JSONAlchemy is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with JSONAlchemy; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 from pyparsing import Keyword, Literal, SkipTo, Optional, quotedString, \
     removeQuotes
 
-from invenio.base.utils import try_to_eval
-
-from invenio.modules.jsonalchemy.errors import FieldParserException
-from invenio.modules.jsonalchemy.parser import \
-    DecoratorAfterEvalBaseExtensionParser
+from jsonalchemy.errors import FieldParserException
+from jsonalchemy.parser import DecoratorAfterEvalBaseExtensionParser
+from jsonalchemy.utils import try_to_eval
 
 
 class ConnectParser(DecoratorAfterEvalBaseExtensionParser):
@@ -61,9 +59,8 @@ class ConnectParser(DecoratorAfterEvalBaseExtensionParser):
                     })
 
     @classmethod
-    def create_element(cls, rule, field_def, content, namespace):
+    def create_element(cls, rule, field_def, content, args):
         """Simply returns the list with the tuples"""
-        from invenio.modules.jsonalchemy.parser import FieldParser
         if isinstance(content, dict):
             content = (content, )
         else:
@@ -71,8 +68,8 @@ class ConnectParser(DecoratorAfterEvalBaseExtensionParser):
         # Conect to the other side
         for connect in content:
             try:
-                connected_field = FieldParser.field_definitions(
-                    namespace)[connect['connected_field']]
+                connected_field = args.field_definitions()[
+                    connect['connected_field']]
             except KeyError:
                 raise FieldParserException(
                     "Definition for '%(field)s' not found, maybe adding "
@@ -114,16 +111,13 @@ class ConnectParser(DecoratorAfterEvalBaseExtensionParser):
         if action == 'get':
             return
 
-        from invenio.modules.jsonalchemy.registry import functions
         for info in args:
             if info['update_function'] is None:
                 json.__setitem__(info['connected_field'],
                                  json[field_name],
                                  exclude='connect')
             else:
-                try_to_eval(info['update_function'],
-                            functions(json.additional_info.namespace))(
-                                json, field_name, info['connected_field'],
-                                action)
+                try_to_eval(info['update_function'], json.metadata.functions)(
+                    json, field_name, info['connected_field'], action)
 
 parser = ConnectParser

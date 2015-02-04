@@ -1,32 +1,50 @@
-..  This file is part of Invenio
-    Copyright (C) 2014 CERN.
+..
+    This file is part of JSONAlchemy
+    Copyright (C) 2014, 2015 CERN.
 
-    Invenio is free software; you can redistribute it and/or
+    JSONAlchemy is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License as
     published by the Free Software Foundation; either version 2 of the
     License, or (at your option) any later version.
 
-    Invenio is distributed in the hope that it will be useful, but
+    JSONAlchemy is distributed in the hope that it will be useful, but
     WITHOUT ANY WARRANTY; without even the implied warranty of
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
     General Public License for more details.
 
     You should have received a copy of the GNU General Public License
-    along with Invenio; if not, write to the Free Software Foundation, Inc.,
-    59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+    along with JSONAlchemy; if not, write to the Free Software Foundation,
+    Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
-.. _jsonalchemy:
+    In applying this licence, CERN does not waive the privileges and immunities
+    granted to it by virtue of its status as an Intergovernmental Organization
+    or submit itself to any jurisdiction.
 
 =============
  JSONAlchemy
 =============
+.. currentmodule:: jsonalchemy
 
-.. currentmodule:: invenio.modules.jsonalchemy
+.. raw:: html
+
+    <p style="height:22px; margin:0 0 0 2em; float:right">
+        <a href="https://travis-ci.org/inveniosoftware/jsonalchemy">
+            <img src="https://travis-ci.org/inveniosoftware/jsonalchemy.png?branch=master"
+                 alt="travis-ci badge"/>
+        </a>
+        <a href="https://coveralls.io/r/inveniosoftware/jsonalchemy">
+            <img src="https://coveralls.io/repos/inveniosoftware/jsonalchemy/badge.png?branch=master"
+                 alt="coveralls.io badge"/>
+        </a>
+    </p>
 
 JSONAlchemy provides an abstraction layer on top of your database to work with
 JSON objects, helping the administrators to define the data model of their site
 independent of the master format they are working with and letting the
 developers work in a controlled and uniform data environment.
+
+Contents
+--------
 
 .. contents::
    :local:
@@ -44,6 +62,18 @@ developers work in a controlled and uniform data environment.
     * Invenio Use Cases: pointer to records, annotations and documents
       documentation (where real 'how to' stile documentation is place for each
       of them).
+
+
+
+Installation
+============
+
+JSONAlchemy is on PyPI so all you need is:
+
+.. code-block:: console
+
+    $ pip install jsonalchemy
+
 
 Module Structure
 ================
@@ -137,8 +167,9 @@ For the BFN lovers, this is something close to the grammar used to parse this::
     derived    ::= [decorators] expr
     calculated ::= [decorators] expr
 
+
 Creator
-^^^^^^^
+-------
 
 The creator is the one of most important parts of the field definition: Inside
 it, the content of the field is created, while the way this happens depends on
@@ -178,7 +209,7 @@ python). We will describe the default decorators that are implemented and how
 to do more later in the :ref:`decorators` section.
 
 Derived
-^^^^^^^
+-------
 
 When a field is derived from a source that is *not* the input file and needs to
 be calculated only when the source it depends on changes (this is expected to
@@ -196,7 +227,7 @@ This section is similar to the previous one, creator, but in this case each
 line is just a valid python expression.
 
 Calculated
-^^^^^^^^^^
+----------
 
 Another type of **virtual fields** are the ones which values' change a lot
 over time; for example the number of comments that a record inside *Invenio*
@@ -224,7 +255,7 @@ One important point about the calculated fields is caching. One field could be:
 See the :ref:`decorators` for more information about this.
 
 Schema
-^^^^^^
+------
 
 Here we can specify the **schema** or structure that the field should follow.
 This is done using `nicolaiarocci/cerberus
@@ -234,7 +265,7 @@ how to use it in `read the docs <http://cerberus.readthedocs.org/en/latest/>`_.
 *JSONAlchemy* only adds two things to the default *cerberus*:
 
 1. The ``force`` boolean value that tells if the value of the filed needs to be
-   casted to ``type``. 
+   casted to ``type``.
 
 2. The ``default`` function (which has no parameters) that is used if the field
    has a default value.
@@ -245,7 +276,7 @@ An example of the schema section could be::
         {'uuid': {'type':'uuid', 'required': True, 'default': lambda: str(__import__('uuid').uuid4())}}
 
 Description
-^^^^^^^^^^^
+-----------
 
 This is an special section as it could be used without the block::
 
@@ -270,10 +301,10 @@ same end result.
     write them and keep them updated.
 
 JSON
-^^^^
+----
 
 Not all the fields that we want to use have a JSON-friendly representation.
-Consider a date that we would like to use as a ``datetime`` object, yet 
+Consider a date that we would like to use as a ``datetime`` object, yet
 we want to store it as a JSON object.
 
 To solve this issue, we introduced the JSON section where a couple of
@@ -294,7 +325,7 @@ A clear example of that is the ``creation_date`` field::
 Both functions take only one argument, which is the value of the field.
 
 Producer
-^^^^^^^^
+--------
 
 Generating a different output from a JSON object is not always easy: there
 might be implications among fields or rules. For this reason the producer
@@ -338,7 +369,7 @@ desired output in a easier way than only using the JSON object.
 .. _decorators:
 
 Decorators
-^^^^^^^^^^
+----------
 
 Like python decorators, field decorators could be used either to add extra
 information to the field itself or to modify the translation process that
@@ -350,7 +381,7 @@ As well as for the sections in the field definition new decorators could be
 defined to extend the current ones.
 
 Field Decorators
-""""""""""""""""
+----------------
 
 This type of decorators should be used outside of the field definition and
 affects the whole field, maybe adding some information to the dictionary that
@@ -373,7 +404,7 @@ defines it.
     decorators with any other that they might need.
 
 Rule Decorators
-"""""""""""""""
+---------------
 
 This other type of decorators applies to the creator/derived/calculated rules.
 For example::
@@ -484,64 +515,64 @@ Core
 ----
 
 Bases
-^^^^^
+-----
 
-.. automodule:: invenio.modules.jsonalchemy.bases
+.. automodule:: jsonalchemy.bases
     :members:
 
 
 Errors
-^^^^^^
+------
 
-.. automodule:: invenio.modules.jsonalchemy.errors
+.. automodule:: jsonalchemy.errors
     :members:
 
 
 Base Model and Field Parser
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+---------------------------
 
-.. autofunction:: invenio.modules.jsonalchemy.parser._create_field_parser
+.. autofunction:: jsonalchemy.parser._create_field_parser
 
-.. autofunction:: invenio.modules.jsonalchemy.parser._create_model_parser
+.. autofunction:: jsonalchemy.parser._create_model_parser
 
-.. autoclass:: invenio.modules.jsonalchemy.parser.FieldParser
+.. autoclass:: jsonalchemy.parser.FieldParser
     :members:
-.. autoclass:: invenio.modules.jsonalchemy.parser.ModelParser
+.. autoclass:: jsonalchemy.parser.ModelParser
     :members:
 
 
 Base Reader
-^^^^^^^^^^^
+-----------
 
-.. autoclass:: invenio.modules.jsonalchemy.reader.Reader
+.. autoclass:: jsonalchemy.reader.Reader
     :members:
 
 
 Registries
-^^^^^^^^^^
+----------
 
-.. automodule:: invenio.modules.jsonalchemy.registry
+.. automodule:: jsonalchemy.registry
     :members:
 
 
 Storage Engine Interface
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
-.. autoclass:: invenio.modules.jsonalchemy.storage.Storage
+.. autoclass:: jsonalchemy.storage.Storage
     :members:
 
 
 Default Validator
-^^^^^^^^^^^^^^^^^
+-----------------
 
-.. autoclass:: invenio.modules.jsonalchemy.validator.Validator
+.. autoclass:: jsonalchemy.validator.Validator
     :members:
 
 
 Wrappers
-^^^^^^^^
+--------
 
-.. automodule:: invenio.modules.jsonalchemy.wrappers
+.. automodule:: jsonalchemy.wrappers
     :members:
 
 
@@ -549,68 +580,80 @@ Extensions
 ----------
 
 Engines
-^^^^^^^
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.engines.cache.CacheStorage
+-------
+.. autoclass:: jsonalchemy.jsonext.engines.cache.CacheStorage
     :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.engines.memory.MemoryStorage
+.. autoclass:: jsonalchemy.jsonext.engines.memory.MemoryStorage
     :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.engines.mongodb_pymongo.MongoDBStorage
+.. autoclass:: jsonalchemy.jsonext.engines.mongodb_pymongo.MongoDBStorage
     :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.engines.sqlalchemy.SQLAlchemyStorage
+.. autoclass:: jsonalchemy.jsonext.engines.sqlalchemy.SQLAlchemyStorage
     :members:
 
 
 Functions
-^^^^^^^^^
+---------
 
 .. _parsers:
 
 Parsers
-^^^^^^^
-.. automodule:: invenio.modules.jsonalchemy.jsonext.parsers
+-------
+.. automodule:: jsonalchemy.jsonext.parsers
 
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.connect_parser.ConnectParser
+.. autoclass:: jsonalchemy.jsonext.parsers.connect_parser.ConnectParser
    :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.depends_on_parser.DependsOnParser
+.. autoclass:: jsonalchemy.jsonext.parsers.depends_on_parser.DependsOnParser
    :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.description_parser.DescriptionParser
+.. autoclass:: jsonalchemy.jsonext.parsers.description_parser.DescriptionParser
    :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.extension_model_parser.ExtensionModelParser
+.. autoclass:: jsonalchemy.jsonext.parsers.extension_model_parser.ExtensionModelParser
    :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.json_extra_parser.JsonExtraParser
+.. autoclass:: jsonalchemy.jsonext.parsers.json_extra_parser.JsonExtraParser
    :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.legacy_parser.LegacyParser
+.. autoclass:: jsonalchemy.jsonext.parsers.legacy_parser.LegacyParser
    :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.memoize_parser.MemoizeParser
+.. autoclass:: jsonalchemy.jsonext.parsers.memoize_parser.MemoizeParser
    :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.only_if_master_value_parser.OnlyIfMasterValueParser
+.. autoclass:: jsonalchemy.jsonext.parsers.only_if_master_value_parser.OnlyIfMasterValueParser
    :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.only_if_parser.OnlyIfParser
+.. autoclass:: jsonalchemy.jsonext.parsers.only_if_parser.OnlyIfParser
    :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.parse_first_parser.ParseFirstParser
+.. autoclass:: jsonalchemy.jsonext.parsers.parse_first_parser.ParseFirstParser
    :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.producer_parser.ProducerParser
+.. autoclass:: jsonalchemy.jsonext.parsers.producer_parser.ProducerParser
    :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.parsers.schema_parser.SchemaParser
+.. autoclass:: jsonalchemy.jsonext.parsers.schema_parser.SchemaParser
    :members:
 
 Producers
-^^^^^^^^^
+---------
 
 .. _json-for-marc:
 
 JSON for MARC
-"""""""""""""
+-------------
 
-.. automodule:: invenio.modules.jsonalchemy.jsonext.producers.json_for_marc
+.. automodule:: jsonalchemy.jsonext.producers.json_for_marc
    :members:
 
 
 Readers
-^^^^^^^
+-------
 
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.readers.json_reader.JsonReader
+.. autoclass:: jsonalchemy.jsonext.readers.json_reader.JsonReader
     :members:
-.. autoclass:: invenio.modules.jsonalchemy.jsonext.readers.marc_reader.MarcReader
+.. autoclass:: jsonalchemy.jsonext.readers.marc_reader.MarcReader
     :members:
 
+
+.. include:: ../CHANGES.rst
+
+.. include:: ../CONTRIBUTING.rst
+
+
+..
+    License
+    =======
+    .. include:: ../LICENSE
+
+.. include:: ../AUTHORS.rst

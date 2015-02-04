@@ -1,28 +1,27 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2013 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of JSONAlchemy.
+# Copyright (C) 2013, 2015 CERN.
+#
+# JSONAlchemy is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# JSONAlchemy is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with JSONAlchemy; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 """Json Reader."""
 
 import re
 
-from invenio.modules.jsonalchemy.reader import ModelParser
-from invenio.modules.jsonalchemy.reader import Reader
+from jsonalchemy.reader import Reader
 
 
 class JsonReader(Reader):
@@ -42,9 +41,8 @@ class JsonReader(Reader):
         """
 
         """
-        model_fields = ModelParser.resolve_models(
-            self._json.model_info.names,
-            self._json.additional_info.namespace).get('fields', {})
+        model_fields = self.model_parser.resolve_models(
+            self._json.model_info.names).get('fields', {})
         model_json_ids = list(model_fields.keys())
         model_field_names = list(model_fields.values())
         for key in list(self._blob.keys()):
@@ -81,9 +79,10 @@ class JsonReader(Reader):
                     info = self._find_field_metadata(json_id, field_name,
                                                      field_type, field_def)
                     self._json['__meta_metadata__'][field_name] = info
-                    self._json.__setitem__(field_name, self._blob[json_id],
-                                           extend=False,
-                                           exclude=['decorators', 'extensions'])
+                    self._json.__setitem__(
+                        field_name, self._blob[json_id], extend=False,
+                        exclude=['decorators', 'extensions']
+                    )
                     return
         else:
             super(JsonReader, self)._apply_virtual_rules(json_id, field_name,

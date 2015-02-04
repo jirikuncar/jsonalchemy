@@ -1,34 +1,30 @@
 # -*- coding: utf-8 -*-
-##
-## This file is part of Invenio.
-## Copyright (C) 2014 CERN.
-##
-## Invenio is free software; you can redistribute it and/or
-## modify it under the terms of the GNU General Public License as
-## published by the Free Software Foundation; either version 2 of the
-## License, or (at your option) any later version.
-##
-## Invenio is distributed in the hope that it will be useful, but
-## WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-## General Public License for more details.
-##
-## You should have received a copy of the GNU General Public License
-## along with Invenio; if not, write to the Free Software Foundation, Inc.,
-## 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
+#
+# This file is part of JSONAlchemy.
+# Copyright (C) 2014, 2015 CERN.
+#
+# JSONAlchemy is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of the
+# License, or (at your option) any later version.
+#
+# JSONAlchemy is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with JSONAlchemy; if not, write to the Free Software Foundation, Inc.,
+# 59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
 
 import datetime
 import six
-from dateutil import parser as dateparser
 from pyparsing import Keyword, Literal, SkipTo
-from werkzeug.utils import import_string
 
-from invenio.base.globals import cfg
-from invenio.base.utils import try_to_eval
+# FIXME from invenio.base.globals import cfg
+from jsonalchemy.utils import try_to_eval
 
-from invenio.modules.jsonalchemy.parser import FieldParser, \
-    DecoratorAfterEvalBaseExtensionParser
-from invenio.modules.jsonalchemy.registry import functions
+from jsonalchemy.parser import DecoratorAfterEvalBaseExtensionParser
 
 
 class MemoizeParser(DecoratorAfterEvalBaseExtensionParser):
@@ -90,9 +86,9 @@ class MemoizeParser(DecoratorAfterEvalBaseExtensionParser):
     __cache = None
 
     def __new__(cls):
-        if cls.__cache is None:
-            cls.__cache = import_string(cfg.get('CFG_JSONALCHEMY_CACHE',
-                                                'invenio.ext.cache:cache'))
+        # if cls.__cache is None:
+        #     cls.__cache = import_string(cfg.get('CFG_JSONALCHEMY_CACHE',
+        #                                         'invenio.ext.cache:cache'))
         return cls
 
     @classmethod
@@ -105,7 +101,7 @@ class MemoizeParser(DecoratorAfterEvalBaseExtensionParser):
                 ).setResultsName("memoize")
 
     @classmethod
-    def create_element(cls, rule, field_def, content, namespace):
+    def create_element(cls, rule, field_def, content, args):
         """Try to evaluate the memoize value to int.
 
         If it fails it sets the default value from ``DEFAULT_TIMEOUT``.
@@ -132,18 +128,16 @@ class MemoizeParser(DecoratorAfterEvalBaseExtensionParser):
         If the value of the field has changed since the last time it gets
         updated in the DB.
         """
-        if cls.__cache is None:
-            cls.__cache = import_string(cfg.get('CFG_JSONALCHEMY_CACHE',
-                                                'invenio.ext.cache:cache'))
-
-        @cls.__cache.memoize(timeout=args)
+        # if cls.__cache is None:
+        #     cls.__cache = import_string(cfg.get('CFG_JSONALCHEMY_CACHE',
+        #                                         'invenio.ext.cache:cache'))
+        #
+        # @cls.__cache.memoize(timeout=args)
         def memoize(_id, field_name):
             func = reduce(lambda obj, key: obj[key],
                           json.meta_metadata[field_name]['function'],
-                          FieldParser.field_definitions(
-                              json.additional_info.namespace))
-            return try_to_eval(func, functions(json.additional_info.namespace),
-                               self=json)
+                          json.metadata.field_parser.field_definitions())
+            return try_to_eval(func, json.metadata.functions, self=json)
 
         if args == cls.DEFAULT_TIMEOUT:
             return
@@ -151,11 +145,10 @@ class MemoizeParser(DecoratorAfterEvalBaseExtensionParser):
             if args == 0:  # No cached version is stored, retrieve it
                 func = reduce(lambda obj, key: obj[key],
                               json.meta_metadata[field_name]['function'],
-                              FieldParser.field_definitions(
-                                  json.additional_info.namespace))
+                              json.metadata.field_parser.field_definitions())
                 json._dict_bson[field_name] = try_to_eval(
                     func,
-                    functions(json.additional_info.namespace),
+                    json.metadata.functions,
                     self=json)
             else:
                 json._dict_bson[field_name] = memoize(json.get('_id'),
