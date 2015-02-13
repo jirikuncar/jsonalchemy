@@ -19,8 +19,10 @@
 
 """Utility functions."""
 
+import functools
 import importlib
 import os
+import six
 
 
 def try_to_eval(string, context={}, **general_context):
@@ -81,3 +83,22 @@ def try_to_eval(string, context={}, **general_context):
         if isinstance(res, type(os)):
             raise ImportError
         return res
+
+
+def filter_values(f):
+    """Remove None values from dictionary."""
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        out = f(*args, **kwargs)
+        return dict((k, v) for k, v in six.iteritems(out) if v is not None)
+    return wrapper
+
+
+def for_each_value(f):
+    """Apply function to each item."""
+    @functools.wraps(f)
+    def wrapper(self, values, **kwargs):
+        if isinstance(values, list):
+            return [f(self, value, **kwargs) for value in values]
+        return f(self, values, **kwargs)
+    return wrapper

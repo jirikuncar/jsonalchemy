@@ -84,8 +84,10 @@ setup(
     include_package_data=True,
     install_requires=[
         'cerberus',
+        'esmre',
         'lxml',
         'pyparsing>=2.0.1,<2.0.2',
+        'python-dateutil',
         'six',
     ],
     extras_require={
