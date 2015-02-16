@@ -146,8 +146,8 @@ class SmartDict(object):
         return True
 
     def __eq__(self, other):
-        return (isinstance(other, self.__class__)
-                and self._dict == other._dict)
+        return (isinstance(other, self.__class__) and
+                self._dict == other._dict)
 
     def __iter__(self):
         return iter(self._dict)
@@ -444,8 +444,8 @@ class SmartJson(SmartDict):
             except IndexError:
                 rest_of_key = ''
             return self[
-                self._dict['__meta_metadata__']['__aliases__'][main_key]
-                + rest_of_key]
+                self._dict['__meta_metadata__']['__aliases__'][main_key] +
+                rest_of_key]
 
     def __setitem__(self, key, value, extend=False, **kwargs):
         """Like in `dict.__setitem__`.
