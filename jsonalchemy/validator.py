@@ -27,7 +27,6 @@ import re
 import six
 
 from cerberus import Validator as ValidatorBase
-from cerberus import ValidationError, SchemaError
 from cerberus import errors
 
 
@@ -59,64 +58,6 @@ class Validator(ValidatorBase):
             document[field] = parser.parse(document[field])
         else:
             document[field] = eval(type_)(document[field])
-
-    def _validate(self, document, schema=None, update=False):
-        self._errors = {}
-        self.update = update
-
-        if schema is not None:
-            self.schema = schema
-        elif self.schema is None:
-            raise SchemaError(errors.ERROR_SCHEMA_MISSING)
-        if not isinstance(self.schema, collections.Mapping):
-            raise SchemaError(errors.ERROR_SCHEMA_FORMAT % str(self.schema))
-
-        if document is None:
-            raise ValidationError(errors.ERROR_DOCUMENT_MISSING)
-        if not isinstance(document, collections.Mapping):
-            raise ValidationError(errors.ERROR_DOCUMENT_FORMAT % str(document))
-        self.document = document
-
-        special_rules = ["required", "nullable", "type"]
-        for field, value in six.iteritems(self.document):
-
-            if self.ignore_none_values and value is None:
-                continue
-
-            definition = self.schema.get(field)
-            if definition:
-                if isinstance(definition, dict):
-
-                    if definition.get("nullable", False) == True \
-                       and value is None:  # noqa
-                        continue
-
-                    if 'type' in definition:
-                        self._validate_type(definition['type'], field, value)
-                        if self.errors:
-                            continue
-
-                    definition_rules = [rule for rule in definition.keys()
-                                        if rule not in special_rules]
-                    for rule in definition_rules:
-                        validatorname = "_validate_" + rule.replace(" ", "_")
-                        validator = getattr(self, validatorname, None)
-                        if validator:
-                            validator(definition[rule], field, value)
-                        elif not self.transparent_schema_rules:
-                            raise SchemaError(errors.ERROR_UNKNOWN_RULE %
-                                              (rule, field))
-                else:
-                    raise SchemaError(errors.ERROR_DEFINITION_FORMAT % field)
-
-            else:
-                if not self.allow_unknown:
-                    self._error(field, errors.ERROR_UNKNOWN_FIELD)
-
-        if not self.update:
-            self._validate_required_fields()
-
-        return len(self._errors) == 0
 
     def _validate_type_objectid(self, field, value):
         """Enable validation for `objectid` schema attribute.
