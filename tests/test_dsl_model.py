@@ -132,3 +132,64 @@ def test_model_schema():
     schema = get_schema(Record)
     assert 'modification_date' in schema
     assert 'id' not in schema
+
+def test_field_composability():
+
+    class Record(dsl.Model):
+
+        """Represent a record model."""
+
+        id = dsl.Field()
+        title = dsl.Object(
+            title=dsl.Field(),
+            subtitle=dsl.Field(),
+        )
+        level1 = dsl.Object(
+            attr1=dsl.Field(),
+            level2=dsl.Object(
+                attr2=dsl.Field()
+            )
+        )
+        author = dsl.Object(
+            name=dsl.Field(),
+            affiliation=dsl.Field(),
+        )
+        keywords = dsl.List(
+            dsl.Object(
+                value=dsl.Field(),
+            )
+        )
+
+        @author.creator('marc', '100__')
+        def author(self, value):
+            return {'name': value['a'], 'affiliation': value['f']}
+
+    record = Record()
+    record.title.title = 'Test'
+    record.title.subtitle = 'Subtest'
+    record.level1.attr1 = 'A1'
+    record.level1.level2.attr2 = 'A2'
+    record.author = {'name': 'Ellis', 'affiliation': 'CERN'}
+    record.keywords.append(dict(value='kw1'))
+
+    assert record.author.name == 'Ellis'
+    assert record.author.affiliation == 'CERN'
+    assert record.keywords[0].value == 'kw1'
+
+    record.keywords[0].value = 'kw2'
+
+    out = record.to_dict()
+    assert out['title']['title'] == 'Test'
+    assert out['title']['subtitle'] == 'Subtest'
+    assert out['level1']['level2']['attr2'] == 'A2'
+    assert out['keywords'][0]['value'] == 'kw2'
+
+    from jsonalchemy.dsl.creator import translate
+    record = translate(Record, {'100__': {'a': 'Ellis', 'f': 'CERN'}}, 'marc')
+    assert record.author.name == 'Ellis'
+    assert record.author.affiliation == 'CERN'
+
+    record = Record(id=1, author=dict(name='Ellis', affiliation='CERN'))
+    assert record.id == 1
+    assert record.author.name == 'Ellis'
+    assert record.author.affiliation == 'CERN'

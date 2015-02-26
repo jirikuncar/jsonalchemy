@@ -23,7 +23,6 @@ import re
 
 from six import iteritems, add_metaclass
 
-from .field import Field
 from .base import Base, MODEL_ATTR, model_attr
 
 
@@ -71,6 +70,7 @@ class ModelTypeOptions(object):
     def __init__(self, name, bases, attrs):
         model_name = underscorify(name)
         self.metadata = Metadata(model_name)
+        from .field import Field
 
         # register all declared fields into the metadata
         for name, value in list(iteritems(attrs)):
