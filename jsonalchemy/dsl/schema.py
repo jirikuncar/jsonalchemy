@@ -30,6 +30,14 @@ class SchemaMixin(object):
 
     """Creator Mixin."""
 
+    def __init__(self, *args, **kwargs):
+        _schema = kwargs.pop('schema', None)
+        if _schema is not None:
+            self.schema(_schema)
+
+        super(SchemaMixin, self).__init__(*args, **kwargs)
+
+
     def schema(self, rule):
         """Register schema rule."""
         _schema = getattr(self, '_schema', dict())
