@@ -122,6 +122,7 @@ def test_model_schema():
 
         id = dsl.Field()
         modification_date = dsl.Field()
+        title = dsl.Field(schema={'type': 'string', 'required': True})
 
         @modification_date.schema
         def modification_date(self):
@@ -136,8 +137,9 @@ def test_model_schema():
     assert getattr(record, 'id', None) == None
 
     schema = get_schema(Record)
-    assert 'modification_date' in schema
     assert 'id' not in schema
+    assert 'modification_date' in schema
+    assert 'title' in schema
 
 def test_field_composability():
 
@@ -199,3 +201,22 @@ def test_field_composability():
     assert record.id == 1
     assert record.author.name == 'Ellis'
     assert record.author.affiliation == 'CERN'
+
+
+def test_marc21():
+    from jsonalchemy.contrib.marc21 import Record
+    from jsonalchemy.dsl.creator import translate
+
+    record = translate(Record, {
+        '001': '1',
+        '100__': {'a': 'Ellis', 'u': 'CERN'},
+        '020': [{'a': '80-902734-1-6'}, {'a': '960-425-059-0'}]
+    }, 'marc')
+
+    assert record.control_number == '1'
+    assert record.main_entry_personal_name.personal_name == 'Ellis'
+    assert record.main_entry_personal_name.affiliation == 'CERN'
+    assert set(
+        issn.international_standard_book_number
+        for issn in record.international_standard_book_number
+    ) == set(['80-902734-1-6', '960-425-059-0'])

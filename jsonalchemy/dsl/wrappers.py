@@ -54,7 +54,8 @@ class AttrList(object):
         return _wrap(l)
 
     def __iter__(self):
-        return map(_wrap, self._l_)
+        for item in self._l_:
+            yield _wrap(item)
 
     def __len__(self):
         return len(self._l_)
