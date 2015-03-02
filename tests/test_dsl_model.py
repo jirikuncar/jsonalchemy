@@ -32,12 +32,14 @@ def get_simple_record():
 
         id = dsl.Field()
         title = dsl.Field()
+        publication_date = dsl.Date()
 
     return Record
 
 def get_record_and_mixin():
     class Mixin(object):
         id = dsl.Field()
+        publication_date = dsl.Date()
 
 
     class Record(Mixin, dsl.Model):
@@ -53,23 +55,27 @@ def test_model_metadadata():
     Record = get_simple_record()
 
     assert hasattr(Record, '_model_type')
-    assert len(Record._model_type.metadata.properties) == 2
+    assert len(Record._model_type.metadata.properties) == 3
 
 
 def test_model_mixin():
     Record, _ = get_record_and_mixin()
 
     assert hasattr(Record, '_model_type')
-    assert len(Record._model_type.metadata.properties) == 2
+    assert len(Record._model_type.metadata.properties) == 3
 
 
 def test_model_instance():
     Record = get_simple_record()
 
+    publication_date = datetime.now()
+
     record = Record()
     record.id = 1
+    record.publication_date = publication_date
     assert record.id == 1
     assert getattr(record, 'title', None) is None
+    assert record.to_dict()['publication_date'] == publication_date.isoformat()
 
     record = Record(id=2, title='Test')
     assert record.id == 2

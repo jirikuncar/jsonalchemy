@@ -57,6 +57,11 @@ class Date(Field):
         except (TypeError, ValueError):
             raise  # XXX
 
+    def to_dict(self, value):
+        if value:
+            return value.isoformat()
+        return value
+
 
 class Object(Field):
 

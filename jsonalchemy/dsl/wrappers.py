@@ -126,5 +126,6 @@ class AttrDict(object):
     def __iter__(self):
         return iter(self._d_)
 
-    def to_dict(self):
-        return self._d_
+    def iteritems(self):
+        from six import iteritems
+        return iteritems(self._d_)

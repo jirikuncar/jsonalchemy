@@ -67,12 +67,15 @@ class Base(AttrDict):
             value = properties[name].to_python(value)
         super(Base, self).__setattr__(name, value)
 
-    def to_dict(self):
+    def to_dict(self, value=None):
+        value = value or self._d_
         out = {}
-        for k, v in iteritems(self._d_):
+        properties = model_attr(self.__class__).metadata.properties
+        for k, v in iteritems(value):
+            to_dict = getattr(properties[k], 'to_dict', None)
             if isinstance(v, (list, tuple)):
-                v = [i.to_dict() if hasattr(i, 'to_dict') else i for i in v]
+                v = [to_dict(i) if to_dict else i for i in v]
             else:
-                v = v.to_dict() if hasattr(v, 'to_dict') else v
+                v = to_dict(v) if to_dict else v
             out[k] = v
         return out

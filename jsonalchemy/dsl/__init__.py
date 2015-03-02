@@ -19,10 +19,11 @@
 
 """JSONAlchemy DSL."""
 
-from .field import Field, Object, List
+from .field import Date, Field, Object, List
 from .model import Model
 
 __all__ = (
+    'Date',
     'Field',
     'List',
     'Model',
