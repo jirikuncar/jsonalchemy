@@ -62,6 +62,6 @@ def get_schema(cls):
             try:
                 yield name, field._schema
             except AttributeError:
-                continue
+                yield name, {'title': name}
 
     return dict(generator())

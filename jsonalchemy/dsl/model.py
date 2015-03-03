@@ -94,5 +94,9 @@ class ModelTypeOptions(object):
 @add_metaclass(ModelTypeMeta)
 class Model(Base):
 
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
+        if len(args) == 1 and len(kwargs) == 0:
+            assert isinstance(args[0], dict)
+            kwargs = args[0]
+
         super(Model, self).__init__(**kwargs)

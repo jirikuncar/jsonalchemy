@@ -50,10 +50,17 @@ class Base(AttrDict):
             setattr(self, k, v)
 
     def __getattr__(self, name):
+        properties = model_attr(self.__class__).metadata.properties
         try:
+            if name in properties:
+                field = properties[name]
+                if hasattr(field, '_wrap'):
+                    try:
+                        return field._wrap(self._d_[name])
+                    except KeyError:
+                        pass
             return super(Base, self).__getattr__(name)
         except AttributeError:
-            properties = model_attr(self.__class__).metadata.properties
             if name in properties:
                 field = properties[name]
                 if hasattr(field, 'default'):

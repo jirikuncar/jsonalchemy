@@ -27,7 +27,7 @@ from dateutil import parser
 from six import iteritems
 
 from .creator import CreatorMixin
-from .schema import SchemaMixin
+from .schema import SchemaMixin, get_schema
 from .wrappers import AttrDict
 
 
@@ -49,12 +49,12 @@ class Date(Field):
     name = 'date'
 
     def _to_python(self, data):
-        if isinstance(data, date):
+        if isinstance(data, date) or data is None:
             return data
         try:
             # TODO: add format awareness
             return parser.parse(data)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, AttributeError):
             raise  # XXX
 
     def to_dict(self, value):
@@ -74,46 +74,80 @@ class Object(Field):
             kwargs = args[0]
 
         self._model = type('Object', (Model, ), kwargs)
-        self._data = self._model()
+        self._schema = {
+            'type': 'object',
+            'properties': get_schema(self._model),
+        }
 
     def default(self):
-        return self._data
+        return {}
 
     def __getattr__(self, name):
-        if name in ('_data', '_model'):
+        if name in ('_data', '_model', '_schema'):
             return super(Object, self).__getattr__(name)
-        return getattr(self._data, name)
+        return getattr(self._model, name)
 
     def __setattr__(self, name, value):
-        if name in ('_data', '_model'):
+        if name in ('_data', '_model', '_schema'):
             return super(Object, self).__setattr__(name, value)
-        return setattr(self._data, name, value)
+        return setattr(self._model, name, value)
+
+    def _to_python(self, data):
+        if not isinstance(data, self._model):
+            data = self._model(data)
+        return data
 
 
-class List(Field, list):
+def _wrap_list(model, data):
+    class WrapList(object):
+
+        def __init__(self, obj):
+            self.obj = obj
+
+        def __getitem__(self, index):
+            value = self.obj.__getitem__(index)
+            if not isinstance(value, model):
+                value = model.to_python(value)
+            return value
+
+        def __setitem__(self, index, value):
+            if not isinstance(value, model):
+                value = model.to_python(value)
+            return self.obj.__setitem__(index, value)
+
+        def append(self, value):
+            if not isinstance(value, model):
+                value = model.to_python(value)
+            return self.obj.append(value)
+
+        def __len__(self):
+            return len(self.obj)
+
+    if type(data) == list:
+        return WrapList(data)
+    return data
+
+
+class List(Field):
 
     name = 'list'
 
     def __init__(self, model):
         self._model = model
-        self._data = None
+        self._schema = {
+            'type': 'array',
+            'items': get_schema(self._model),
+        }
 
     def default(self):
         return []
 
-    def __getitem__(self, index):
-        return self._data[index]
-
-    def __setitem__(self, index, value):
-        if not isinstance(value, self._model):
-            value = self._model(value)
-        self._data[index] = value
-
-    def __len__(self):
-        return len(self._data)
+    def _wrap(self, data):
+        return _wrap_list(self._model._model, data)
 
     def _to_python(self, data):
         if isinstance(data, list):
             data[:] = map(self._model.to_python, data)
-            return data
-        return self._model.to_python(data)
+            return _wrap_list(self._model, data)
+        raise TypeError("Invalid data type '{0} - list required.".format(
+            type(data)))

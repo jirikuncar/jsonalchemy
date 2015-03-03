@@ -19,6 +19,8 @@
 
 """Test model creation."""
 
+import pytest
+
 from datetime import datetime
 
 from jsonalchemy import dsl
@@ -77,7 +79,18 @@ def test_model_instance():
     assert getattr(record, 'title', None) is None
     assert record.to_dict()['publication_date'] == publication_date.isoformat()
 
-    record = Record(id=2, title='Test')
+    record.publication_date = publication_date.isoformat()
+    assert record.to_dict()['publication_date'] == publication_date.isoformat()
+
+    with pytest.raises(ValueError) as excinfo:
+        record.publication_date = 'deadbeef'
+        assert 'unknown string format' in str(extinfo.value)
+
+    record.publication_date = None
+    assert record.to_dict()['publication_date'] == None
+
+    record = Record(id=2, title='Test',
+                    publication_date=publication_date.isoformat())
     assert record.id == 2
     assert record.title == 'Test'
     assert getattr(record, 'foo', '_foo_') == '_foo_'
@@ -137,7 +150,7 @@ def test_model_schema():
     assert getattr(record, 'id', None) == None
 
     schema = get_schema(Record)
-    assert 'id' not in schema
+    assert schema['id']['title'] == 'id'
     assert 'modification_date' in schema
     assert 'title' in schema
 
@@ -155,16 +168,18 @@ def test_field_composability():
         level1 = dsl.Object(
             attr1=dsl.Field(),
             level2=dsl.Object(
-                attr2=dsl.Field()
+                dict(attr2=dsl.Field())
             )
         )
         author = dsl.Object(
             name=dsl.Field(),
             affiliation=dsl.Field(),
+            birthday=dsl.Date(),
         )
         keywords = dsl.List(
             dsl.Object(
                 value=dsl.Field(),
+                created=dsl.Date(schema=dict(default=datetime.now)),
             )
         )
 
@@ -177,20 +192,31 @@ def test_field_composability():
     record.title.subtitle = 'Subtest'
     record.level1.attr1 = 'A1'
     record.level1.level2.attr2 = 'A2'
-    record.author = {'name': 'Ellis', 'affiliation': 'CERN'}
+    record.author = {'name': 'Ellis', 'affiliation': 'CERN',
+                     'birthday': '1960-01-02'}
     record.keywords.append(dict(value='kw1'))
+    record.keywords.append(dict(value='kw2'))
+
+    with pytest.raises(TypeError) as excinfo:
+        record.keywords = 'deadbeef'
 
     assert record.author.name == 'Ellis'
     assert record.author.affiliation == 'CERN'
+    assert isinstance(record.author.birthday, datetime)
+    assert len(record.keywords) == 2
     assert record.keywords[0].value == 'kw1'
+    assert record.keywords[0].created is not None
+    assert record.keywords[0].created <= record.keywords[1].created
 
-    record.keywords[0].value = 'kw2'
+    record.keywords[0].value = 'kw1_1'
+    record.keywords[1] = {'value': 'kw2_1'}
 
     out = record.to_dict()
     assert out['title']['title'] == 'Test'
     assert out['title']['subtitle'] == 'Subtest'
     assert out['level1']['level2']['attr2'] == 'A2'
-    assert out['keywords'][0]['value'] == 'kw2'
+    assert out['keywords'][0]['value'] == 'kw1_1'
+    assert out['keywords'][1]['value'] == 'kw2_1'
 
     from jsonalchemy.dsl.creator import translate
     record = translate(Record, {'100__': {'a': 'Ellis', 'f': 'CERN'}}, 'marc')
@@ -202,10 +228,14 @@ def test_field_composability():
     assert record.author.name == 'Ellis'
     assert record.author.affiliation == 'CERN'
 
+    assert isinstance(Record.keywords._model.created.default(), datetime)
+    assert Record.level1._schema['type'] == 'object'
+
 
 def test_marc21():
     from jsonalchemy.contrib.marc21 import Record
     from jsonalchemy.dsl.creator import translate
+    from jsonalchemy.dsl.schema import get_schema
 
     record = translate(Record, {
         '001': '1',
@@ -220,3 +250,6 @@ def test_marc21():
         issn.international_standard_book_number
         for issn in record.international_standard_book_number
     ) == set(['80-902734-1-6', '960-425-059-0'])
+
+    schema = get_schema(Record)
+    assert schema['international_standard_book_number']['type'] == 'array'
