@@ -19,7 +19,7 @@
 
 """JSONAlchemy DSL."""
 
-from .field import Date, Field, Object, List
+from .field import Date, Field, Object, List, hybrid_property
 from .model import Model
 
 __all__ = (
@@ -28,4 +28,5 @@ __all__ = (
     'List',
     'Model',
     'Object',
+    'hybrid_property',
 )

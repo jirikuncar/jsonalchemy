@@ -33,7 +33,7 @@ from .wrappers import AttrDict
 
 class Field(CreatorMixin, SchemaMixin):
 
-    name = None
+    _name = None
 
     def _to_python(self, data):
         """Iternal data conversion."""
@@ -46,7 +46,7 @@ class Field(CreatorMixin, SchemaMixin):
 
 class Date(Field):
 
-    name = 'date'
+    _name = 'date'
     _schema = {'type': 'date'}
 
     def _to_python(self, data):
@@ -66,7 +66,7 @@ class Date(Field):
 
 class Object(Field):
 
-    name = 'object'
+    _name = 'object'
 
     def __init__(self, *args, **kwargs):
         from .model import Model
@@ -100,26 +100,20 @@ class Object(Field):
 
 
 def _wrap_list(model, data):
-    class WrapList(object):
-
-        def __init__(self, obj):
-            self.obj = obj
+    class WrapList(list):
 
         def __getitem__(self, index):
-            value = self.obj.__getitem__(index)
+            value = list.__getitem__(self, index)
             value = model.to_python(value)
             return value
 
         def __setitem__(self, index, value):
             value = model.to_python(value)
-            return self.obj.__setitem__(index, value)
+            return list.__setitem__(self, index, value)
 
         def append(self, value):
             value = model.to_python(value)
-            return self.obj.append(value)
-
-        def __len__(self):
-            return len(self.obj)
+            return list.append(self, value)
 
     if type(data) == list:
         return WrapList(data)
@@ -128,7 +122,7 @@ def _wrap_list(model, data):
 
 class List(Field):
 
-    name = 'list'
+    _name = 'list'
 
     def __init__(self, model):
         self._model = model
@@ -152,3 +146,55 @@ class List(Field):
             return _wrap_list(self._model, data)
         raise TypeError("Invalid data type '{0} - list required.".format(
             type(data)))
+
+
+class hybrid_property(object):
+
+    def __init__(self, fget, fset=None, fdel=None, expr=None):
+        """Create a new :class:`.hybrid_property`.
+
+        Usage is typically via decorator::
+
+            from jsonalchemy.ext.hybrid import hybrid_property
+
+            class SomeModel(object):
+
+                @hybrid_property
+                def value(self):
+                    return self._value
+
+                @value.setter
+                def value(self, value):
+                    self._value = value
+
+        """
+        self.fget = fget
+        self.fset = fset
+        self.fdel = fdel
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        else:
+            return self.fget(instance)
+
+    def __set__(self, instance, value):
+        if self.fset is None:
+            raise AttributeError("can't set attribute")
+        self.fset(instance, value)
+
+    def __delete__(self, instance):
+        if self.fdel is None:
+            raise AttributeError("can't delete attribute")
+        self.fdel(instance)
+
+    def setter(self, fset):
+        """Provide a modifying decorator for a value-setter method."""
+
+        self.fset = fset
+        return self
+
+    def deleter(self, fdel):
+        """Provide a modifying decorator for a value-deletion method."""
+        self.fdel = fdel
+        return self

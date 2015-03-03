@@ -72,6 +72,9 @@ class Base(AttrDict):
         properties = model_attr(self.__class__).metadata.properties
         if name in properties:
             value = properties[name].to_python(value)
+        elif hasattr(self.__class__, name):
+            # use properties defined on model class
+            return getattr(self.__class__, name).__set__(self, value)
         super(Base, self).__setattr__(name, value)
 
     def to_dict(self, value=None):

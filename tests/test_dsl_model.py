@@ -279,3 +279,62 @@ def test_marc21():
 
     schema = get_schema(Record)['properties']
     assert schema['international_standard_book_number']['type'] == 'array'
+
+
+def test_custom_model_property():
+
+    def name(self):
+        out = self.last_name
+        if getattr(self, 'first_name', None):
+            out += ', ' + self.first_name
+        return out
+
+    author_model = dsl.Object(
+        first_name=dsl.Field(),
+        last_name=dsl.Field(),
+        name=dsl.hybrid_property(name),
+        affiliation=dsl.Field(),
+        birthday=dsl.Date(),
+    )
+
+    @author_model.name.setter
+    def name(self, value):
+        if ', ' in value:
+            self.last_name, self.first_name = value.split(', ')
+        else:
+            self.last_name = value
+
+    class Record(dsl.Model):
+        first_author = author_model
+        additional_authors = dsl.List(author_model)
+
+        @dsl.hybrid_property
+        def authors(self):
+            return [self.first_author] + self.additional_authors
+
+        @authors.setter
+        def authors(self, value):
+            self.first_author = value[0]
+            self.additional_authors = value[1:]
+
+    record = Record(
+        first_author=dict(name='Ellis', affiliation='CERN'),
+        additional_authors=[
+            dict(name='Higgs', affiliation='CERN'),
+            dict(name='Heuer', affiliation='CERN'),
+        ],
+    )
+
+    assert len(record.authors) == 3
+
+    record.authors[0].name = 'Ellis, J'
+    record.authors[1].affiliation = 'DESY'
+    record.authors[2].birthday = ''
+    assert record.first_author.name == 'Ellis, J'
+    assert record.additional_authors[0].affiliation == 'DESY'
+    assert isinstance(record.additional_authors[1].birthday, datetime)
+
+    authors = record.authors
+    authors.append(dict(name='Einstein'))
+    record.authors = authors
+    assert record.additional_authors[-1].name == 'Einstein'
