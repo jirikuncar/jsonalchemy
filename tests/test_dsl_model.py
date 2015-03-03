@@ -149,7 +149,7 @@ def test_model_schema():
     assert record.modification_date <= datetime.now()
     assert getattr(record, 'id', None) == None
 
-    schema = get_schema(Record)
+    schema = get_schema(Record)['properties']
     assert schema['id']['title'] == 'id'
     assert 'modification_date' in schema
     assert 'title' in schema
@@ -232,6 +232,32 @@ def test_field_composability():
     assert Record.level1._schema['type'] == 'object'
 
 
+def test_list_composability():
+    from jsonalchemy.dsl.schema import get_schema
+
+    class Record(dsl.Model):
+
+        """Represent a record model."""
+
+        id = dsl.Field()
+        keywords = dsl.List(
+            dsl.Field(schema={'type': 'string'}),
+        )
+        dates = dsl.List(
+            dsl.Date(schema=dict(default=datetime.now)),
+        )
+
+    record = Record(keywords=['kw1', 'kw2'], dates=[''])
+
+    assert record.keywords[0] == 'kw1'
+    assert record.keywords[1] == 'kw2'
+    assert record.dates[0] <= datetime.now()
+
+    schema = get_schema(Record)
+    assert schema['properties']['keywords']['items']['type'] == 'string'
+    assert schema['properties']['dates']['items']['type'] == 'date'
+
+
 def test_marc21():
     from jsonalchemy.contrib.marc21 import Record
     from jsonalchemy.dsl.creator import translate
@@ -251,5 +277,5 @@ def test_marc21():
         for issn in record.international_standard_book_number
     ) == set(['80-902734-1-6', '960-425-059-0'])
 
-    schema = get_schema(Record)
+    schema = get_schema(Record)['properties']
     assert schema['international_standard_book_number']['type'] == 'array'

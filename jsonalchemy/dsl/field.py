@@ -47,6 +47,7 @@ class Field(CreatorMixin, SchemaMixin):
 class Date(Field):
 
     name = 'date'
+    _schema = {'type': 'date'}
 
     def _to_python(self, data):
         if isinstance(data, date) or data is None:
@@ -106,18 +107,15 @@ def _wrap_list(model, data):
 
         def __getitem__(self, index):
             value = self.obj.__getitem__(index)
-            if not isinstance(value, model):
-                value = model.to_python(value)
+            value = model.to_python(value)
             return value
 
         def __setitem__(self, index, value):
-            if not isinstance(value, model):
-                value = model.to_python(value)
+            value = model.to_python(value)
             return self.obj.__setitem__(index, value)
 
         def append(self, value):
-            if not isinstance(value, model):
-                value = model.to_python(value)
+            value = model.to_python(value)
             return self.obj.append(value)
 
         def __len__(self):
@@ -136,14 +134,17 @@ class List(Field):
         self._model = model
         self._schema = {
             'type': 'array',
-            'items': get_schema(self._model),
+            'items': (
+                get_schema(self._model) if not isinstance(self._model, Field)
+                else getattr(self._model, '_schema', {})
+            ),
         }
 
     def default(self):
         return []
 
     def _wrap(self, data):
-        return _wrap_list(self._model._model, data)
+        return _wrap_list(self._model, data)
 
     def _to_python(self, data):
         if isinstance(data, list):

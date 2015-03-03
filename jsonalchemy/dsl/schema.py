@@ -37,7 +37,6 @@ class SchemaMixin(object):
 
         super(SchemaMixin, self).__init__(*args, **kwargs)
 
-
     def schema(self, rule):
         """Register schema rule."""
         _schema = getattr(self, '_schema', dict())
@@ -57,6 +56,7 @@ class SchemaMixin(object):
 
 
 def get_schema(cls):
+    """Collect schema for all fields from given model."""
     def generator():
         for name, field in iteritems(model_attr(cls).metadata.properties):
             try:
@@ -64,4 +64,9 @@ def get_schema(cls):
             except AttributeError:
                 yield name, {'title': name}
 
-    return dict(generator())
+    return {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'title': cls.__name__,
+        'description': getattr(cls, __doc__, ''),
+        'properties': dict(generator()),
+    }
