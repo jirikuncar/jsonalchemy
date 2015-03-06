@@ -107,7 +107,7 @@ def test_model_creation():
         title = dsl.Field()
 
         @title.creator('marc', '245__')
-        def title(self, value):
+        def title(self, key, value):
             return value['a']
 
     record = translate(Record, {'245__': {'a': 'Test'}}, 'marc')
@@ -120,7 +120,7 @@ def test_model_creation():
     _clean_index(Record)
 
     Record.id.creator('marc', '001__')(
-        lambda self, value: value
+        lambda self, key, value: value
     )
     record = translate(Record, {'001__': 1}, 'marc')
     assert record.id == 1
@@ -184,7 +184,7 @@ def test_field_composability():
         )
 
         @author.creator('marc', '100__')
-        def author(self, value):
+        def author(self, key, value):
             return {'name': value['a'], 'affiliation': value['f']}
 
     record = Record()

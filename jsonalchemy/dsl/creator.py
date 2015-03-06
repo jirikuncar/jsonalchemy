@@ -76,9 +76,10 @@ def translate(cls, blob, source_format):
 
     rules = index[source_format]
 
-    def generator():
-        for key, value in iteritems(blob):
-            for name, field, creator in rules.query(key):
-                yield name, creator(field, value)
+    self = cls()
 
-    return cls(**dict(generator()))
+    for key, value in iteritems(blob):
+        for name, field, creator in rules.query(key):
+            setattr(self, name, creator(self, key, value))
+
+    return self

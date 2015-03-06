@@ -97,8 +97,8 @@ def filter_values(f):
 def for_each_value(f):
     """Apply function to each item."""
     @functools.wraps(f)
-    def wrapper(self, values, **kwargs):
+    def wrapper(self, key, values, **kwargs):
         if isinstance(values, list):
-            return [f(self, value, **kwargs) for value in values]
-        return f(self, values, **kwargs)
+            return [f(self, key, value, **kwargs) for value in values]
+        return f(self, key, values, **kwargs)
     return wrapper
