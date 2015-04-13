@@ -25,7 +25,7 @@ from datetime import datetime
 
 from jsonalchemy import JSONSchemaBase, factory
 
-from jsonschema import SchemaError
+from jsonschema import SchemaError, ValidationError
 
 
 def test_model_factory():
@@ -37,12 +37,14 @@ def test_model_factory():
 
 
 def test_non_existent_schema():
+    """Test that an error is raised should the schema URL be wrong."""
     with pytest.raises(IOError) as excinfo:
         factory.model_factory(object, 'not_existent/schema.json')
         assert 'not_existent/schema.json' in str(excinfo.value)
 
 
 def test_invalid_schema():
+    """Test that an error is raised should the schema be invalid."""
     with pytest.raises(ValueError) as excinfo:
         factory.model_factory(object, 'schemas/missing_bracket.json')
         assert 'ValueError' in str(excinfo.value)
@@ -54,7 +56,6 @@ def test_invalid_schema():
 
 def test_meta():
     """Internal model structure when schema url is used."""
-
     class SimpleRecord(JSONSchemaBase):
         class Meta:
             __schema_url__ = 'schemas/simple.json'
@@ -65,7 +66,6 @@ def test_meta():
 
 def test_schema_dict():
     """Internal model structure when schema dict is used."""
-
     class SimpleRecord(JSONSchemaBase):
         class Meta:
             __schema__ = {
@@ -81,7 +81,7 @@ def test_schema_dict():
 
 
 def test_list_field():
-
+    """Test that the schema type resolution are correct and Pythonic."""
     Record = factory.model_factory(object, 'schemas/record_with_title.json')
 
     assert Record.__schema__['type'] == 'object'
@@ -94,7 +94,6 @@ def test_list_field():
 
 def test_default_value():
     """Test default value and __eq__ method."""
-
     class FieldWithDefault(JSONSchemaBase):
         class Meta:
             __schema__ = {
@@ -110,12 +109,53 @@ def test_default_value():
 
 
 def test_schema_references():
-
+    """Test reference resolution between schemas."""
     Title = factory.model_factory(object, 'schemas/title.json')
-
     Record = factory.model_factory(object, 'schemas/record_with_title.json')
 
     #assert Record.title.__schema__ == Title.__schema__
     assert type(Record.title) == type(Title)
     assert 'id' in Title.__schema__
     assert Record.title.__schema__['$ref'] == Title.__schema__['id']
+
+
+def test_model_valid_setting():
+    """Test that valid values are properly set in model object."""
+    SimpleRecord = factory.model_factory(object, 'schemas/simple.json')
+    record = SimpleRecord()
+
+    record.my_field = "This is legal"
+    assert record.my_field == "This is legal"
+
+    record.my_field = "æøå"
+    assert record.my_field == "æøå"
+
+    record.my_field = u"æøå"
+    assert record.my_field == u"æøå"
+
+
+def test_complex_model_valid_setting():
+    """Test that valid values are properly set in model object."""
+    ComplexRecord = factory.model_factory(object, 'schemas/complex.json')
+    record = ComplexRecord()
+
+    record.authors.append({
+        "given_name": "Iron",
+        "family_name": "Man",
+        "affiliation": "Stark Inc."
+    })
+    assert record.authors == [{
+        "given_name": "Iron",
+        "family_name": "Man",
+        "affiliation": "Stark Inc."
+    }]
+
+
+def test_model_invalid_setting():
+    """Test that invalid values raises a ValidationError."""
+    SimpleRecord = factory.model_factory(object, 'schemas/simple.json')
+    record = SimpleRecord()
+
+    with pytest.raises(ValidationError) as excinfo:
+        record.my_field = 666
+    assert "is not of type 'string'" in str(excinfo.value)
