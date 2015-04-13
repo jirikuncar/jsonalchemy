@@ -159,3 +159,50 @@ def test_model_invalid_setting():
     with pytest.raises(ValidationError) as excinfo:
         record.my_field = 666
     assert "is not of type 'string'" in str(excinfo.value)
+
+
+def test_single_inheritance():
+    """Field override and single inheritance."""
+    BaseRecord = factory.model_factory(object, 'schemas/inherit/base.json')
+    Record = factory.model_factory(BaseRecord, 'schemas/inherit/title.json')
+
+    assert BaseRecord.title.__schema__['type'] == 'string'
+    assert Record.title.__schema__['type'] == 'object'
+
+    assert BaseRecord.author == Record.author
+
+
+def test_simple_composability():
+    """Compose simple types to new class."""
+    Title = factory.model_factory(object, 'schemas/compose/title.json')
+    Author = factory.model_factory(object, 'schemas/compose/author.json')
+
+    class Record(JSONSchemaBase):
+        title = Title()
+        author = Author()
+
+    assert Record.title.__schema__ == Title.__schema__
+    assert Record.author.__schema__ == Author.__schema__
+
+    assert len(Record.__schema__['properties']) >= 2
+
+
+def test_mixins():
+    """Compose objects to new class."""
+    Title = factory.model_factory(object, 'schemas/mixin/title.json')
+    Author = factory.model_factory(object, 'schemas/mixin/author.json')
+
+    assert Title.__schema__['type'] == 'object'
+    assert Author.__schema__['type'] == 'object'
+
+    class Record(JSONSchemaBase):
+        class Meta:
+            __schema__ = factory.compose(
+                'schemas/mixin/title.json',
+                'schemas/mixin/author.json'
+            )
+
+    assert Record.title.__schema__ == Title.__schema__
+    assert Record.author.__schema__ == Author.__schema__
+
+# TODO overlaping fields in mixins
