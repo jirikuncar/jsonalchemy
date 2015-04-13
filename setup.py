@@ -83,9 +83,6 @@ setup(
     packages=find_packages(exclude=['tests', 'docs']),
     include_package_data=True,
     install_requires=[
-        'cerberus',
-        'lxml',
-        'pyparsing>=2.0.1,<2.0.2',
         'six',
     ],
     extras_require={
@@ -96,9 +93,9 @@ setup(
     classifiers=[
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
-        # 'Programming Language :: Python :: 3',
-        # 'Programming Language :: Python :: 3.3',
-        # 'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
         'Development Status :: 1 - Planning',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: GNU General Public License v2'
