@@ -1,0 +1,9 @@
+{
+	"title": "Test simple schema",
+	"type": "object",
+	"properties": {
+		"my_field": {
+			"type": "string"
+		}
+	}
+}

@@ -1,0 +1,8 @@
+{
+	"id": "#title",
+	"properties": {
+	    "title": {
+	    	"type": "string"
+	    }
+	}
+}
