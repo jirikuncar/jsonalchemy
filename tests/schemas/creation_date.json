@@ -1,0 +1,10 @@
+{
+	"title": "Test creation date schema",
+	"type": "object",
+	"properties": {
+		"creation_date": {
+			"type": "string",
+			"format": "date"
+		}
+	}
+}

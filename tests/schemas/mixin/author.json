@@ -1,0 +1,9 @@
+{
+	"title": "Test author schema",
+	"type": "object",
+	"properties": {
+		"author": {
+			"type": "string",
+		}
+	}
+}

@@ -1,0 +1,15 @@
+{
+    "title": "Test mixin authors schema",
+    "type": "object",
+    "properties": {
+        "authors": {
+            "type": "array",
+            "items": { "type": "string" }
+        },
+        "author": { "type": "string" },
+        "other_authors": {
+            "type": "array",
+            "items": { "type": "string" }
+        }
+    }
+}

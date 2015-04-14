@@ -1,0 +1,15 @@
+{
+    "title": "Test mixin keywords schema",
+    "type": "object",
+    "properties": {
+        "keywords": {
+            "type": "array",
+            "items": { "type": "string" }
+        },
+        "first_keyword": { "type": "string" },
+        "other_keywords": {
+            "type": "array",
+            "items": { "type": "string" }
+        }
+    }
+}
