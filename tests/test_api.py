@@ -102,10 +102,28 @@ def test_default_value():
                 'default': 'foo',
             }
 
+    class FieldWithDefault2(JAString):
+
+        """Field with default"""
+
+        @classmethod
+        def default(cls):
+            return 'foo'
+
     assert hasattr(FieldWithDefault, '__schema__')
 
     field = FieldWithDefault()
     assert field == 'foo'
+
+    class ModelWithDefaultField(JSONSchemaBase):
+        field = FieldWithDefault()
+
+    data = ModelWithDefaultField()
+    assert model.field == 'foo'
+
+    data.field = 'bar'
+    assert field == 'foo'
+    assert data.field == 'bar'
 
 
 def test_schema_references():
@@ -158,7 +176,7 @@ def test_model_invalid_setting():
 
     with pytest.raises(ValidationError) as excinfo:
         record.my_field = 666
-    assert "is not of type 'string'" in str(excinfo.value)
+        assert "is not of type 'string'" in str(excinfo.value)
 
 
 def test_single_inheritance():
