@@ -40,18 +40,18 @@ def test_non_existent_schema():
     """Test that an error is raised should the schema URL be wrong."""
     with pytest.raises(IOError) as excinfo:
         factory.model_factory(object, 'not_existent/schema.json')
-        assert 'not_existent/schema.json' in str(excinfo.value)
+    assert 'not_existent/schema.json' in str(excinfo.value)
 
 
 def test_invalid_schema():
     """Test that an error is raised should the schema be invalid."""
     with pytest.raises(ValueError) as excinfo:
         factory.model_factory(object, 'schemas/missing_bracket.json')
-        assert 'ValueError' in str(excinfo.value)
+    assert 'ValueError' in str(excinfo.value)
 
     with pytest.raises(SchemaError) as excinfo:
         factory.model_factory(object, 'schemas/invalid_json_schema.json')
-        assert 'SchemaError' in str(excinfo.value)
+    assert 'SchemaError' in str(excinfo.value)
 
 
 def test_meta():
@@ -176,7 +176,7 @@ def test_model_invalid_setting():
 
     with pytest.raises(ValidationError) as excinfo:
         record.my_field = 666
-        assert "is not of type 'string'" in str(excinfo.value)
+    assert "is not of type 'string'" in str(excinfo.value)
 
 
 def test_single_inheritance():

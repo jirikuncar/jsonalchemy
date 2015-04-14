@@ -115,12 +115,12 @@ def test_properties():
 
     with pytest.raises(AttributeError) as excinfo:
         record.first_keyword = 'foo'
-        assert "can't set attribute" in str(excinfo.value)
+    assert "can't set attribute" in str(excinfo.value)
 
     # FIXME invoke ValidationError
     # with pytest.raises(ValidationError) as excinfo:
     #     record.authors = 3
-    #     assert "list" in str(excinfo.value)
+    # assert "list" in str(excinfo.value)
 
     data = json.dumps(record)
 
@@ -129,6 +129,3 @@ def test_properties():
     assert len(data['authors']) == 3
     assert data['author'] == 'Ellis, J'
     assert data['other_authors'] == ['Higgs, P', 'Englert, F']
-
-
-
