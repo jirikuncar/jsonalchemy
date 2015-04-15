@@ -19,11 +19,14 @@
 
 """Test API."""
 
+from __future__ import absolute_import
+
 import pytest
 
 from datetime import datetime
 
 from jsonalchemy import JSONSchemaBase, factory
+from jsonalchemy.wrappers import JSONBase, Object, String
 
 from jsonschema import SchemaError, ValidationError
 
@@ -68,7 +71,7 @@ def test_meta():
 
 def test_schema_dict():
     """Internal model structure when schema dict is used."""
-    class SimpleRecord(JSONSchemaBase):
+    class SimpleRecord(JSONBase):
         class Meta:
             __schema__ = {
                 'title': 'Simple Schema',
@@ -80,6 +83,85 @@ def test_schema_dict():
 
     assert hasattr(SimpleRecord, '__schema__')
     assert hasattr(SimpleRecord, 'my_field')
+
+
+def test_type_from_schema():
+    """Test type from schema."""
+    class StringField(JSONBase):
+        class Meta:
+            __schema__ = {
+                'title': 'Test String Field',
+                'type': 'string',
+            }
+
+    class ProperStringField(String):
+        class Meta:
+            __schema__ = {
+                'title': 'Proper String Field',
+                'type': 'string',
+            }
+
+    with pytest.raises(TypeError) as excinfo:
+        class Mismatched(Object):
+            class Meta:
+                __schema__ = {
+                    'title': 'This is not a string Field',
+                    'type': 'string',
+                }
+
+    test_string_field = StringField()
+
+    test_value = test_string_field('test value')
+    assert test_value == 'test value'
+
+    with pytest.raises(TypeError) as excinfo:
+        test_string_field(1)
+
+
+def test_recursive_type_creation():
+
+    class RecordMeta(Object):
+
+        class Meta:
+
+            __schema__ = {
+                'type': 'object',
+                'properties': {
+                    'identifier': {'type': 'integer'},
+                    'title': {'type': 'string'},
+                    'keywords': {'type': 'array', 'items': {
+                        'type': 'string',
+                    }},
+                    'author': {
+                        'type': 'object',
+                        'properties': {
+                            'full_name': {'type': 'string'},
+                        },
+                    },
+                },
+            }
+
+    Record = RecordMeta()
+
+    record = Record({
+        'identifier': 1,
+        'title': 'Test',
+        'keywords': ['foo', 'bar'],
+        'author': {'full_name': 'Ellis, J'}
+    })
+
+    assert record.identifier == 1
+    assert record.title == 'Test'
+    assert record.keywords == ['foo', 'bar']
+    assert record.author.full_name == 'Ellis, J'
+
+    with pytest.raises(AttributeError) as excinfo:
+        getattr(record.author, 'not_existent_attribute')
+
+    with pytest.raises(Exception) as excinfo:
+        record = Record({
+            'author': {'not_in_schema': 'Any Value'},
+        })
 
 
 def test_list_field():
@@ -96,7 +178,7 @@ def test_list_field():
 
 def test_default_value():
     """Test default value and __eq__ method."""
-    class FieldWithDefault(JSONSchemaBase):
+    class FieldWithDefault(JSONBase):
         class Meta:
             __schema__ = {
                 'title': 'Field with default',
@@ -104,7 +186,7 @@ def test_default_value():
                 'default': 'foo',
             }
 
-    class FieldWithDefault2(JAString):
+    class FieldWithDefault2(String):
 
         """Field with default"""
 
