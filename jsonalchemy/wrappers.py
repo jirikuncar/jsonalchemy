@@ -52,8 +52,19 @@ class Wrapper(object):
         try:
             return self.data[key]
         except KeyError:
-            raise AttributeError
+            return super(Wrapper, self).__getattr__(key)
 
+    def __setattr__(self, key, value):
+        if key in ('schema', 'data'):
+            super(Wrapper, self).__setattr__(key, value)
+        else:
+            if hasattr(self.__class__, key):
+                super(Wrapper, self).__setattr__(key, value)
+            else:
+                self.data[key] = getattr(self.schema, key)(value)
+
+    def __setitem__(self, key, value):
+        self.data[key] = getattr(self.schema, key)(value)
 
     def __getitem__(self, index):
         return self.data[index]
@@ -106,8 +117,21 @@ class MetaSchema(type):
         return schema_class
 
 
+def create_type_from_schema(schema, bases=()):
+    schema_type = schema['type']
+    schema_base = MetaSchema.__schema_registry__[schema_type]
+
+    return type('Object', bases + (schema_base, ), {
+        'Meta': type('Meta', (object, ), {
+            '__schema__': schema
+        }),
+    })
+
+
 def schema_to_type(schema):
     schema_type = schema.get('type', None)
+    if schema_type in set(['object', 'list']):
+        return create_type_from_schema(schema)()
     return MetaSchema.__schema_registry__[schema_type]()
 
 
@@ -115,9 +139,13 @@ def schema_to_type(schema):
 class JSONBase(object):
 
     def __call__(self, value):
+        wrapper_class = (
+            getattr(self.Meta, 'Wrapper', Wrapper)
+            if hasattr(self, 'Meta') else Wrapper
+        )
         if isinstance(value, self.python_class):
-            return Wrapper(self, value)
-        elif isinstance(value, Wrapper):
+            return wrapper_class(self, value)
+        elif isinstance(value, wrapper_class):
             return value
         raise TypeError("'{0}' is not type of '{1}'".format(
             value, self.python_class
@@ -192,12 +220,14 @@ class String(JSONBase):
 
 # TODO implement Datetime
 
+
 class Integer(JSONBase):
 
     schema_type = 'integer'
     python_class = (int, long)
 
 # TODO implement Number
+
 
 class Boolean(JSONBase):
 

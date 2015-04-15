@@ -23,20 +23,45 @@
 
 """Factory helpers."""
 
+from __future__ import absolute_import
+
 import json
 
 from jsonschema import Draft4Validator
 
+from .wrappers import JSONBase, create_type_from_schema
 
-def model_factory(base_class, schema_url):
-    class Model(object):
-        __schema__ = {}
-        my_field = "foo"
+
+def model_factory(schema_url, bases=()):
 
     with open(schema_url, "r") as schema_file:
         schema = json.loads(schema_file.read())
         validator = Draft4Validator(schema)
 
-        Model.__schema__ = schema
+    return create_type_from_schema(schema, bases=bases)
 
-    return Model
+
+def compose(*schema_urls):
+
+    import collections
+
+    def update(orig_dict, new_dict):
+        for key, val in new_dict.iteritems():
+            if isinstance(val, collections.Mapping):
+                tmp = update(orig_dict.get(key, {}), val)
+                orig_dict[key] = tmp
+            elif isinstance(val, list):
+                orig_dict[key] = (orig_dict[key] + val)
+            else:
+                orig_dict[key] = new_dict[key]
+        return orig_dict
+
+    result = {}
+    for schema_url in schema_urls:
+        with open(schema_url, "r") as schema_file:
+            schema = json.loads(schema_file.read())
+            validator = Draft4Validator(schema)
+            update(result, schema)
+
+    validator = Draft4Validator(result)
+    return result

@@ -24,8 +24,3 @@
 """JSONAlchemy."""
 
 from .version import __version__
-
-
-class JSONSchemaBase:
-    def __init__(self):
-        self.__schema__ = {}

@@ -22,8 +22,13 @@
 import pytest
 
 from jsonalchemy.wrappers import (
-    Boolean, List, String, Object, Integer
+    JSONBase, Boolean, List, String, Object, Integer
 )
+
+def test_forbiden_type_override():
+    with pytest.raises(RuntimeError) as excinfo:
+        class AlreadyRegisteredObject(JSONBase):
+            schema_type = 'object'
 
 
 def test_simple_string_wrapper():
@@ -235,3 +240,29 @@ def test_wrapper_composability():
         record.authors.append('Ellis, J')
 
     # TODO splice
+
+
+def test_tricky_keys():
+
+    class DataMeta(Object):
+
+        class Meta:
+
+            schema = String()
+            data = String()
+
+    Data = DataMeta()
+    data = Data({'data': 'data', 'schema': 'schema'})
+
+    assert data['data'] == 'data'
+    assert data['schema'] == 'schema'
+
+    assert data.data['data'] == 'data'
+    assert data.data['schema'] == 'schema'
+
+    data = Data({})
+    data['data'] = 'foo'
+    data['schema'] = 'bar'
+
+    assert data['data'] == 'foo'
+    assert data['schema'] == 'bar'

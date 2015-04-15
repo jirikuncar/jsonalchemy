@@ -27,7 +27,8 @@ import pytest
 
 from datetime import datetime
 
-from jsonalchemy import JSONSchemaBase, factory, types
+from jsonalchemy import factory, types
+from jsonalchemy.wrappers import JSONBase, Wrapper as OrigWrapper
 
 from jsonschema import SchemaError, ValidationError
 
@@ -37,10 +38,15 @@ from helpers import abs_path
 def test_datetime():
     current_datetime = datetime.now()
 
-    class Record(JSONSchemaBase):
-        creation_date = types.DateTime()
+    class RecordMeta(JSONBase):
+        class Meta:
+            creation_date = types.DateTime()
 
-    record = Record()
+    class Record(RecordMeta()):
+        def __init__(self, value=None):
+            super(Record, self).__init__(value or {})
+
+    record = Record({})
     record.creation_date = current_datetime
 
     assert isinstance(record.creation_date, datetime)
@@ -53,9 +59,13 @@ def test_datetime():
 def test_datetime_from_schema():
     current_datetime = datetime.now()
 
-    class Record(JSONSchemaBase):
+    class RecordMeta(JSONBase):
         class Meta:
             __schema_url__ = abs_path('schemas/creation_date.json')
+
+    class Record(RecordMeta()):
+        def __init__(self, value=None):
+            super(Record, self).__init__(value or {})
 
     record = Record()
     record.creation_date = current_datetime
@@ -69,33 +79,37 @@ def test_datetime_from_schema():
 
 def test_properties():
 
-    class Record(JSONSchemaBase):
-
-        @property
-        def authors(self):
-            return [self.author] + self.other_authors
-
-        @authors.setter
-        def authors(self, value):
-            self.author = value[0]
-            self.other_authors = value[1:]
-
-        @property
-        def first_keyword(self):
-            return self.keywords[0]
-
-        @property
-        def other_keywords(self):
-            return self.keywords[1:]
+    class RecordMeta(JSONBase):
 
         class Meta:
             """Schema must contain all properties that should be dumped."""
             __schema__ = factory.compose(
-                abs_path('schemas/mixin/authors.json'),
                 abs_path('schemas/mixin/keywords.json'),
+                abs_path('schemas/mixin/authors.json'),
             )
 
-    record = Record()
+            class Wrapper(OrigWrapper):
+
+                @property
+                def authors(self):
+                    return [self.author] + list(self.other_authors)
+
+                @authors.setter
+                def authors(self, value):
+                    self.author = value[0]
+                    self.other_authors = value[1:]
+
+                @property
+                def first_keyword(self):
+                    return self.keywords[0]
+
+                @property
+                def other_keywords(self):
+                    return self.keywords[1:]
+
+    Record = RecordMeta()
+
+    record = Record({})
     record.keywords = ['first', 'second', 'other']
 
     assert record.first_keyword == 'first'
@@ -106,8 +120,7 @@ def test_properties():
 
     assert len(record.authors) == 3
 
-    record.authors[0] = 'First, G'
-    record.authors[2] = 'Other, G'
+    record.authors = ['First, G', 'Higgs, P', 'Other, G']
 
     assert record.author == 'First, G'
     assert record.other_authors[1] == 'Other, G'
@@ -126,7 +139,7 @@ def test_properties():
     #     record.authors = 3
     # assert "list" in str(excinfo.value)
 
-    data = json.dumps(record)
+    data = json.dumps(record.data)
 
     assert data['first_keyword'] == 'first'
     assert data['other_keywords'] == ['second', 'other']

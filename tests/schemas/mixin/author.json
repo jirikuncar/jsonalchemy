@@ -3,7 +3,7 @@
 	"type": "object",
 	"properties": {
 		"author": {
-			"type": "string",
+			"type": "string"
 		}
 	}
 }
