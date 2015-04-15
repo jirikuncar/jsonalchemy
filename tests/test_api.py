@@ -27,10 +27,12 @@ from jsonalchemy import JSONSchemaBase, factory
 
 from jsonschema import SchemaError, ValidationError
 
+from helpers import abs_path
+
 
 def test_model_factory():
     """Expected API for end user to generate model from a schema."""
-    SimpleRecord = factory.model_factory(object, 'schemas/simple.json')
+    SimpleRecord = factory.model_factory(object, abs_path('schemas/simple.json'))
 
     assert hasattr(SimpleRecord, '__schema__')
     assert hasattr(SimpleRecord, 'my_field')
@@ -46,11 +48,11 @@ def test_non_existent_schema():
 def test_invalid_schema():
     """Test that an error is raised should the schema be invalid."""
     with pytest.raises(ValueError) as excinfo:
-        factory.model_factory(object, 'schemas/missing_bracket.json')
+        factory.model_factory(object, abs_path('schemas/missing_bracket.json'))
     assert 'ValueError' in str(excinfo.value)
 
     with pytest.raises(SchemaError) as excinfo:
-        factory.model_factory(object, 'schemas/invalid_json_schema.json')
+        factory.model_factory(object, abs_path('schemas/invalid_json_schema.json'))
     assert 'SchemaError' in str(excinfo.value)
 
 
@@ -58,7 +60,7 @@ def test_meta():
     """Internal model structure when schema url is used."""
     class SimpleRecord(JSONSchemaBase):
         class Meta:
-            __schema_url__ = 'schemas/simple.json'
+            __schema_url__ = abs_path('schemas/simple.json')
 
     assert hasattr(SimpleRecord, '__schema__')
     assert hasattr(SimpleRecord, 'my_field')
@@ -82,7 +84,7 @@ def test_schema_dict():
 
 def test_list_field():
     """Test that the schema type resolution are correct and Pythonic."""
-    Record = factory.model_factory(object, 'schemas/record_with_title.json')
+    Record = factory.model_factory(object, abs_path('schemas/record_with_title.json'))
 
     assert Record.__schema__['type'] == 'object'
     assert Record.authors.__schema__['type'] == 'array'
@@ -128,8 +130,8 @@ def test_default_value():
 
 def test_schema_references():
     """Test reference resolution between schemas."""
-    Title = factory.model_factory(object, 'schemas/title.json')
-    Record = factory.model_factory(object, 'schemas/record_with_title.json')
+    Title = factory.model_factory(object, abs_path('schemas/title.json'))
+    Record = factory.model_factory(object, abs_path('schemas/record_with_title.json'))
 
     #assert Record.title.__schema__ == Title.__schema__
     assert type(Record.title) == type(Title)
@@ -139,7 +141,7 @@ def test_schema_references():
 
 def test_model_valid_setting():
     """Test that valid values are properly set in model object."""
-    SimpleRecord = factory.model_factory(object, 'schemas/simple.json')
+    SimpleRecord = factory.model_factory(object, abs_path('schemas/simple.json'))
     record = SimpleRecord()
 
     record.my_field = "This is legal"
@@ -154,7 +156,7 @@ def test_model_valid_setting():
 
 def test_complex_model_valid_setting():
     """Test that valid values are properly set in model object."""
-    ComplexRecord = factory.model_factory(object, 'schemas/complex.json')
+    ComplexRecord = factory.model_factory(object, abs_path('schemas/complex.json'))
     record = ComplexRecord()
 
     record.authors.append({
@@ -171,7 +173,7 @@ def test_complex_model_valid_setting():
 
 def test_model_invalid_setting():
     """Test that invalid values raises a ValidationError."""
-    SimpleRecord = factory.model_factory(object, 'schemas/simple.json')
+    SimpleRecord = factory.model_factory(object, abs_path('schemas/simple.json'))
     record = SimpleRecord()
 
     with pytest.raises(ValidationError) as excinfo:
@@ -181,8 +183,8 @@ def test_model_invalid_setting():
 
 def test_single_inheritance():
     """Field override and single inheritance."""
-    BaseRecord = factory.model_factory(object, 'schemas/inherit/base.json')
-    Record = factory.model_factory(BaseRecord, 'schemas/inherit/title.json')
+    BaseRecord = factory.model_factory(object, abs_path('schemas/inherit/base.json'))
+    Record = factory.model_factory(BaseRecord, abs_path('schemas/inherit/title.json'))
 
     assert BaseRecord.title.__schema__['type'] == 'string'
     assert Record.title.__schema__['type'] == 'object'
@@ -192,8 +194,8 @@ def test_single_inheritance():
 
 def test_simple_composability():
     """Compose simple types to new class."""
-    Title = factory.model_factory(object, 'schemas/compose/title.json')
-    Author = factory.model_factory(object, 'schemas/compose/author.json')
+    Title = factory.model_factory(object, abs_path('schemas/compose/title.json'))
+    Author = factory.model_factory(object, abs_path('schemas/compose/author.json'))
 
     class Record(JSONSchemaBase):
         title = Title()
@@ -207,8 +209,8 @@ def test_simple_composability():
 
 def test_mixins():
     """Compose objects to new class."""
-    Title = factory.model_factory(object, 'schemas/mixin/title.json')
-    Author = factory.model_factory(object, 'schemas/mixin/author.json')
+    Title = factory.model_factory(object, abs_path('schemas/mixin/title.json'))
+    Author = factory.model_factory(object, abs_path('schemas/mixin/author.json'))
 
     assert Title.__schema__['type'] == 'object'
     assert Author.__schema__['type'] == 'object'
@@ -216,8 +218,8 @@ def test_mixins():
     class Record(JSONSchemaBase):
         class Meta:
             __schema__ = factory.compose(
-                'schemas/mixin/title.json',
-                'schemas/mixin/author.json'
+                abs_path('schemas/mixin/title.json'),
+                abs_path('schemas/mixin/author.json')
             )
 
     assert Record.title.__schema__ == Title.__schema__

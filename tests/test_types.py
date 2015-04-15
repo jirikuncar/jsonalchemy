@@ -19,6 +19,8 @@
 
 """Test types."""
 
+from __future__ import absolute_import
+
 import json
 
 import pytest
@@ -28,6 +30,8 @@ from datetime import datetime
 from jsonalchemy import JSONSchemaBase, factory, types
 
 from jsonschema import SchemaError, ValidationError
+
+from helpers import abs_path
 
 
 def test_datetime():
@@ -51,7 +55,7 @@ def test_datetime_from_schema():
 
     class Record(JSONSchemaBase):
         class Meta:
-            __schema_url__ = 'schemas/creation_date.json'
+            __schema_url__ = abs_path('schemas/creation_date.json')
 
     record = Record()
     record.creation_date = current_datetime
@@ -87,8 +91,8 @@ def test_properties():
         class Meta:
             """Schema must contain all properties that should be dumped."""
             __schema__ = factory.compose(
-                'schemas/mixin/authors.json',
-                'schemas/mixin/keywords.json',
+                abs_path('schemas/mixin/authors.json'),
+                abs_path('schemas/mixin/keywords.json'),
             )
 
     record = Record()
