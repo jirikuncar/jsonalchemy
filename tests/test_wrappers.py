@@ -86,3 +86,138 @@ def test_simple_object_wrapper():
         author("Ellis, John R.")
 
     assert "is not type of" in str(excinfo.value)
+
+
+def test_wrapper_composability():
+
+    class RecordMeta(Object):
+
+        class Meta:
+
+            identifier = Integer()
+            title = String()
+            keywords = List()
+
+    Record = RecordMeta()
+
+    # assert set(Record.__schema__['properties'].keys()) == set(
+    #     ['identifier', 'title', 'keywords'])
+
+    record = Record({
+        'identifier': 1,
+        'title': 'Test',
+        'keywords': ['foo', 'bar'],
+    })
+
+    assert record.identifier == 1
+    assert record.title == 'Test'
+    assert record.keywords == ['foo', 'bar']
+
+    with pytest.raises(AttributeError) as excinfo:
+        getattr(record, 'not_existent_attribute')
+
+    with pytest.raises(Exception) as excinfo:
+        record = Record({
+            'not_in_schema': 'Any Value',
+        })
+
+
+def test_wrapper_recursive_composability():
+
+    class RecordMeta(Object):
+
+        class Meta:
+
+            identifier = Integer()
+            title = String()
+            keywords = List()
+
+            class Author(Object):
+
+                class Meta:
+
+                    full_name = String()
+
+            author = Author()
+
+    Record = RecordMeta()
+
+    # assert set(Record.__schema__['properties'].keys()) == set(
+    #     ['identifier', 'title', 'keywords'])
+
+    record = Record({
+        'identifier': 1,
+        'title': 'Test',
+        'keywords': ['foo', 'bar'],
+        'author': {'full_name': 'Ellis, J'}
+    })
+
+    assert record.identifier == 1
+    assert record.title == 'Test'
+    assert record.keywords == ['foo', 'bar']
+    assert record.author.full_name == 'Ellis, J'
+
+    with pytest.raises(AttributeError) as excinfo:
+        getattr(record.author, 'not_existent_attribute')
+
+    with pytest.raises(Exception) as excinfo:
+        record = Record({
+            'author': {'not_in_schema': 'Any Value'},
+        })
+
+
+def test_wrapper_composability():
+
+    class RecordMeta(Object):
+
+        class Meta:
+
+            identifier = Integer()
+            title = String()
+            keywords = List()
+
+            class Author(Object):
+
+                class Meta:
+
+                    full_name = String()
+
+            authors = List(Author)
+
+
+
+    Record = RecordMeta()
+
+
+    record = Record({
+        'identifier': 1,
+        'title': 'Test',
+        'keywords': ['foo', 'bar'],
+        'authors': [
+            {'full_name': 'Ellis, J'},
+            {'full_name': 'Higgs, P'},
+            {'full_name': 'Englert, F'},
+        ]
+    })
+
+    assert record.identifier == 1
+    assert record.title == 'Test'
+    assert record.keywords == ['foo', 'bar']
+    assert len(record.authors) == 3
+    assert record.authors[0].full_name == 'Ellis, J'
+    assert record.authors[2].full_name == 'Englert, F'
+
+    with pytest.raises(IndexError) as excinfo:
+        record.authors[3]
+
+    del record.authors[1]
+    assert len(record.authors) == 2
+    assert record.authors[1].full_name == 'Englert, F'
+
+    with pytest.raises(AttributeError) as excinfo:
+        getattr(record.authors[0], 'not_existent_attribute')
+
+    with pytest.raises(TypeError) as excinfo:
+        record.authors.append('Ellis, J')
+
+    # TODO splice
