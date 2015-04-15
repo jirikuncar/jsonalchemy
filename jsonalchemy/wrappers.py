@@ -64,6 +64,9 @@ class Wrapper(object):
     def __len__(self):
         return len(self.data)
 
+    def __nonzero__(self):
+        return bool(self.data)
+
 
 class MetaSchema(type):
 
@@ -134,3 +137,8 @@ class String(JSONBase):
 class Integer(JSONBase):
 
     python_class = (int, long)
+
+
+class Boolean(JSONBase):
+
+    python_class = (bool, )

@@ -22,7 +22,7 @@
 import pytest
 
 from jsonalchemy.wrappers import (
-    List, String, Object, Integer
+    Boolean, List, String, Object, Integer
 )
 
 
@@ -69,6 +69,22 @@ def test_simple_integer_wrapper():
         identifier("1")
 
     assert "is not type of" in str(excinfo.value)
+
+
+def test_simple_bool_wrapper():
+    """Test simple wrapping of Boolean."""
+    flag = Boolean()
+    my_flag = flag(True)
+    assert my_flag
+
+    my_flag_is_down = flag(False)
+    assert not my_flag_is_down
+
+    with pytest.raises(TypeError) as excinfo:
+        flag("True")
+
+    with pytest.raises(TypeError) as excinfo:
+        flag(1)
 
 
 def test_simple_object_wrapper():
@@ -183,8 +199,6 @@ def test_wrapper_composability():
                     full_name = String()
 
             authors = List(Author)
-
-
 
     Record = RecordMeta()
 
