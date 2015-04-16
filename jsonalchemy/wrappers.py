@@ -24,7 +24,10 @@
 """Wrappers."""
 
 from collections import namedtuple
+from jsonschema import SchemaError
 from six import iteritems, add_metaclass
+
+from .utils import load_schema_from_url
 
 
 class Wrapper(object):
@@ -86,7 +89,14 @@ class MetaSchema(type):
     def __new__(cls, name, bases, attrs):
         Meta = attrs.get('Meta', None)
         if Meta:
-            schema = getattr(Meta, '__schema__', {})
+            schema_url = getattr(Meta, '__schema_url__', None)
+            if schema_url:
+                schema = load_schema_from_url(schema_url)
+                if hasattr(Meta, '__schema__'):
+                    raise RuntimeError()
+                setattr(Meta, '__schema__', schema)
+            else:
+                schema = getattr(Meta, '__schema__', {})
             # TODO cls.__doc__ to title if not there
             schema_type = schema.get('type', None)
             if schema_type:
@@ -105,6 +115,9 @@ class MetaSchema(type):
                     for base in bases):
                 bases = (cls.__schema_registry__[schema_type], ) + bases
 
+            # Store modification back in attributes.
+            attrs['Meta'] = Meta
+
         schema_class = super(MetaSchema, cls).__new__(cls, name, bases, attrs)
         schema_type = attrs.get('schema_type', None)
         if schema_type in cls.__schema_registry__:
@@ -116,12 +129,20 @@ class MetaSchema(type):
 
         return schema_class
 
+    def __getattr__(cls, key):
+        try:
+            return super(MetaSchema, cls).__getattr__(key)
+        except AttributeError:
+            if hasattr(cls, 'Meta'):
+                return getattr(cls.Meta, key)
+            raise AttributeError
+
 
 def create_type_from_schema(schema, bases=()):
     schema_type = schema['type']
     schema_base = MetaSchema.__schema_registry__[schema_type]
 
-    return type('Object', bases + (schema_base, ), {
+    return type(schema_base.__name__, bases + (schema_base, ), {
         'Meta': type('Meta', (object, ), {
             '__schema__': schema
         }),
@@ -130,9 +151,10 @@ def create_type_from_schema(schema, bases=()):
 
 def schema_to_type(schema):
     schema_type = schema.get('type', None)
-    if schema_type in set(['object', 'list']):
+    try:
         return create_type_from_schema(schema)()
-    return MetaSchema.__schema_registry__[schema_type]()
+    except KeyError:
+        raise SchemaError('"{0}" is not a valid schema'.format(schema_type))
 
 
 @add_metaclass(MetaSchema)
@@ -150,6 +172,14 @@ class JSONBase(object):
         raise TypeError("'{0}' is not type of '{1}'".format(
             value, self.python_class
         ))
+
+    def __getattr__(self, key):
+        try:
+            return super(JSONBase, self).__getattr__(key)
+        except AttributeError:
+            if hasattr(self, 'Meta'):
+                return getattr(self.Meta, key)
+            raise AttributeError
 
 
 class Object(JSONBase):
@@ -172,11 +202,22 @@ class Object(JSONBase):
 
         return wrapped
 
-    def __getattr__(self, name):
-        try:
-            return super(Object, self).__getattr__(name)
-        except AttributeError:
-            return getattr(self.Meta, name)
+    def __new__(cls):
+        Meta = getattr(cls, 'Meta', None)
+        if Meta:
+            schema = getattr(Meta, '__schema__', {})
+            schema.setdefault('type', 'object')
+            schema.setdefault('properties', {})
+
+            for name in dir(Meta):
+                attr = getattr(Meta, name)
+                if isinstance(attr, JSONBase):
+                    schema['properties'][name] = {'type': attr.schema_type}
+
+            Meta.__schema__ = schema
+            cls.Meta = Meta
+
+        return super(Object, cls).__new__(cls)
 
     @classmethod
     def from_schema(cls, Meta):

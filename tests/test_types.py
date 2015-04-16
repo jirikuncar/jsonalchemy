@@ -63,9 +63,10 @@ def test_datetime_from_schema():
         class Meta:
             __schema_url__ = abs_path('schemas/creation_date.json')
 
-    class Record(RecordMeta()):
-        def __init__(self, value=None):
-            super(Record, self).__init__(value or {})
+        def __call__(self, value=None):
+            super(RecordMeta, self).__call__(value or {})
+
+    Record = RecordMeta()
 
     record = Record()
     record.creation_date = current_datetime

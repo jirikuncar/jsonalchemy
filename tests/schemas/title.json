@@ -1,8 +1,9 @@
 {
 	"id": "#title",
+  "type": "object",
 	"properties": {
-	    "title": {
-	    	"type": "string"
-	    }
+    "title": {
+      "type": "string"
+    }
 	}
 }

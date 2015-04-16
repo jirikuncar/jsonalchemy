@@ -52,11 +52,11 @@ def test_invalid_schema():
     """Test that an error is raised should the schema be invalid."""
     with pytest.raises(ValueError) as excinfo:
         factory.model_factory(abs_path('schemas/missing_bracket.json'))
-    assert 'ValueError' in str(excinfo.value)
+    assert 'ValueError' in str(excinfo)
 
     with pytest.raises(SchemaError) as excinfo:
         factory.model_factory(abs_path('schemas/invalid_json_schema.json'))
-    assert 'SchemaError' in str(excinfo.value)
+    assert 'SchemaError' in str(excinfo)
 
 
 def test_meta():
@@ -171,7 +171,7 @@ def test_list_field():
     assert Record.__schema__['type'] == 'object'
     assert Record.authors.__schema__['type'] == 'array'
 
-    record = Record()
+    record = Record({})
 
     assert isinstance(record.authors, list)
 
@@ -196,13 +196,13 @@ def test_default_value():
 
     assert hasattr(FieldWithDefault, '__schema__')
 
-    field = FieldWithDefault()
+    field = FieldWithDefault({})
     assert field == 'foo'
 
     class ModelWithDefaultField(JSONBase):
         field = FieldWithDefault()
 
-    data = ModelWithDefaultField()
+    data = ModelWithDefaultField({})
     assert model.field == 'foo'
 
     data.field = 'bar'
@@ -224,7 +224,7 @@ def test_schema_references():
 def test_model_valid_setting():
     """Test that valid values are properly set in model object."""
     SimpleRecord = factory.model_factory(abs_path('schemas/simple.json'))
-    record = SimpleRecord()
+    record = SimpleRecord({})
 
     record.my_field = "This is legal"
     assert record.my_field == "This is legal"
@@ -239,7 +239,7 @@ def test_model_valid_setting():
 def test_complex_model_valid_setting():
     """Test that valid values are properly set in model object."""
     ComplexRecord = factory.model_factory(abs_path('schemas/complex.json'))
-    record = ComplexRecord()
+    record = ComplexRecord({})
 
     record.authors.append({
         "given_name": "Iron",
@@ -256,7 +256,7 @@ def test_complex_model_valid_setting():
 def test_model_invalid_setting():
     """Test that invalid values raises a ValidationError."""
     SimpleRecord = factory.model_factory(abs_path('schemas/simple.json'))
-    record = SimpleRecord()
+    record = SimpleRecord({})
 
     with pytest.raises(ValidationError) as excinfo:
         record.my_field = 666
@@ -279,9 +279,10 @@ def test_simple_composability():
     Title = factory.model_factory(abs_path('schemas/compose/title.json'))
     Author = factory.model_factory(abs_path('schemas/compose/author.json'))
 
-    class Record(JSONBase):
-        title = Title()
-        author = Author()
+    class Record(Object):
+        class Meta:
+            title = Title
+            author = Author
 
     assert Record.title.__schema__ == Title.__schema__
     assert Record.author.__schema__ == Author.__schema__
@@ -304,7 +305,7 @@ def test_mixins():
                 abs_path('schemas/mixin/author.json')
             )
 
-    assert Record.title.__schema__ == Title.__schema__
-    assert Record.author.__schema__ == Author.__schema__
+    assert Record.title.__schema__ == Title.title.__schema__
+    assert Record.author.__schema__ == Author.author.__schema__
 
 # TODO overlaping fields in mixins
