@@ -4,12 +4,18 @@
     "properties": {
         "authors": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+                "type": "string"
+            }
         },
-        "author": { "type": "string" },
+        "author": {
+            "type": "string"
+        },
         "other_authors": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+                "type": "string"
+            }
         }
     }
 }

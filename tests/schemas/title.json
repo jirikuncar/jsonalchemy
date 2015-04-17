@@ -1,9 +1,9 @@
 {
-	"id": "#title",
-  "type": "object",
-	"properties": {
-    "title": {
-      "type": "string"
+    "id": "#title",
+    "type": "object",
+    "properties": {
+        "title": {
+            "type": "string"
+        }
     }
-	}
 }

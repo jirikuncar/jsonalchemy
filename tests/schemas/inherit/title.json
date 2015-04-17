@@ -1,13 +1,17 @@
 {
-	"title": "Title schema",
-	"type": "object",
-	"properties": {
-	    "title": { 
-	    	"type": "object",
-	    	"properties": {
-	    		"name": { "type": "string" },
-	    		"subtitle": { "type": "string" }
-	    	}
-	     },
-	}
+    "title": "Title schema",
+    "type": "object",
+    "properties": {
+        "title": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "subtitle": {
+                    "type": "string"
+                }
+            }
+        }
+    }
 }

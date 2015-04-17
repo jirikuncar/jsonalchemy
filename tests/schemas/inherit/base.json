@@ -1,8 +1,12 @@
 {
-	"title": "Base inheritance schema",
-	"type": "object",
-	"properties": {
-	    "title": { "type": "string" },
-	    "author": { "type": "string" }
-	}
+    "title": "Base inheritance schema",
+    "type": "object",
+    "properties": {
+        "title": {
+            "type": "string"
+        },
+        "author": {
+            "type": "string"
+        }
+    }
 }

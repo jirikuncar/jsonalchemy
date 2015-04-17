@@ -4,12 +4,18 @@
     "properties": {
         "keywords": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+                "type": "string"
+            }
         },
-        "first_keyword": { "type": "string" },
+        "first_keyword": {
+            "type": "string"
+        },
         "other_keywords": {
             "type": "array",
-            "items": { "type": "string" }
+            "items": {
+                "type": "string"
+            }
         }
     }
 }

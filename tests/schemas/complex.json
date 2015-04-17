@@ -1,17 +1,23 @@
 {
-	"title": "Test complex schema",
-	"type": "object",
-	"properties": {
-		"authors": {
-			"type": "array",
-			"items": {
-				"type": "object",
-				"properties": {
-					"given_name": { "type": "string" },
-					"family_name": { "type": "string" },
-					"affiliation": { "type": "string" }
-				} 
-			}
-		}
-	}
+    "title": "Test complex schema",
+    "type": "object",
+    "properties": {
+        "authors": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "given_name": {
+                        "type": "string"
+                    },
+                    "family_name": {
+                        "type": "string"
+                    },
+                    "affiliation": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
 }
