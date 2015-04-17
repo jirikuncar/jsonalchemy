@@ -51,7 +51,7 @@ def compose(*schema_urls):
                 orig_dict[key] = tmp
             elif isinstance(val, list):
                 # FIXME we can't merge lists nicely
-                orig_dict[key] = (orig_dict[key] + val)
+                raise RuntimeError()
             else:
                 orig_dict[key] = new_dict[key]
         return orig_dict

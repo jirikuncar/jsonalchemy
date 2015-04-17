@@ -1,0 +1,14 @@
+{
+    "title": "Various kinds of titles.",
+    "type": "array",
+    "items": [
+        { "type": "string" },
+        {
+            "type": "object",
+            "properties": {
+                "title": { "type": "string" },
+                "subtitle": { "type": "string" }
+            }
+        }
+    ]
+}

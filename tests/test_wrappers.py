@@ -19,11 +19,16 @@
 
 """Test wrappers."""
 
+from __future__ import absolute_import
+
 import pytest
 
 from jsonalchemy.wrappers import (
     JSONBase, Boolean, List, String, Object, Integer
 )
+
+from helpers import abs_path
+
 
 def test_forbiden_type_override():
     with pytest.raises(RuntimeError) as excinfo:
@@ -266,3 +271,11 @@ def test_tricky_keys():
 
     assert data['data'] == 'foo'
     assert data['schema'] == 'bar'
+
+
+def test_schema_and_schema_url():
+    with pytest.raises(RuntimeError) as excinfo:
+        class TooManySchema(String):
+            class Meta:
+                __schema__ = { 'type': 'string' }
+                __schema_url__ = abs_path('schemas/compose/title.json')

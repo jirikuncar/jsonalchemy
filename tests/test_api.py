@@ -26,7 +26,7 @@ import pytest
 from datetime import datetime
 
 from jsonalchemy import factory
-from jsonalchemy.wrappers import JSONBase, Object, String
+from jsonalchemy.wrappers import JSONBase, List, Object, String
 
 from jsonschema import SchemaError, ValidationError
 
@@ -309,3 +309,17 @@ def test_mixins():
     assert Record.author.__schema__ == Author.author.__schema__
 
 # TODO overlaping fields in mixins
+
+def test_array_clash_in_mixins():
+    """Fail when array fields clash."""
+    Titles = factory.model_factory(abs_path('schemas/mixin/titles.json'))
+
+    assert Titles.__schema__['type'] == 'array'
+
+    with pytest.raises(RuntimeError) as excinfo:
+        class MoreTitles(List):
+            class Meta:
+                __schema__ = factory.compose(
+                    abs_path('schemas/mixin/titles.json'),
+                    abs_path('schemas/mixin/titles.json')
+                )
