@@ -81,6 +81,10 @@ class Wrapper(object):
     def __nonzero__(self):
         return bool(self.data)
 
+    def append(self, value):
+        # FIXME Only list schema has attribute schema.
+        return self.data.append(self.schema.schema(value))
+
 
 class MetaSchema(type):
 
@@ -181,6 +185,10 @@ class JSONBase(object):
                 return getattr(self.Meta, key)
             raise AttributeError
 
+    @classmethod
+    def from_schema(cls, Meta):
+        return Meta
+
 
 class Object(JSONBase):
 
@@ -212,7 +220,11 @@ class Object(JSONBase):
             for name in dir(Meta):
                 attr = getattr(Meta, name)
                 if isinstance(attr, JSONBase):
-                    schema['properties'][name] = {'type': attr.schema_type}
+                    if hasattr(attr, '__schema__'):
+                        attr_schema = attr.__schema__
+                    else:
+                        attr_schema = {'type': attr.schema_type}
+                    schema['properties'][name] = attr_schema
 
             Meta.__schema__ = schema
             cls.Meta = Meta

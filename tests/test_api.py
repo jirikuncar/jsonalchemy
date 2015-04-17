@@ -239,7 +239,7 @@ def test_model_valid_setting():
 def test_complex_model_valid_setting():
     """Test that valid values are properly set in model object."""
     ComplexRecord = factory.model_factory(abs_path('schemas/complex.json'))
-    record = ComplexRecord({})
+    record = ComplexRecord({'authors': []})
 
     record.authors.append({
         "given_name": "Iron",
@@ -258,15 +258,15 @@ def test_model_invalid_setting():
     SimpleRecord = factory.model_factory(abs_path('schemas/simple.json'))
     record = SimpleRecord({})
 
-    with pytest.raises(ValidationError) as excinfo:
+    with pytest.raises(TypeError) as excinfo:
         record.my_field = 666
-    assert "is not of type 'string'" in str(excinfo.value)
 
 
 def test_single_inheritance():
     """Field override and single inheritance."""
     BaseRecord = factory.model_factory(abs_path('schemas/inherit/base.json'))
-    Record = factory.model_factory(BaseRecord, abs_path('schemas/inherit/title.json'))
+    Record = factory.model_factory(abs_path('schemas/inherit/title.json'),
+                                   bases=(BaseRecord, ))
 
     assert BaseRecord.title.__schema__['type'] == 'string'
     assert Record.title.__schema__['type'] == 'object'

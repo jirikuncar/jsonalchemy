@@ -50,6 +50,7 @@ def compose(*schema_urls):
                 tmp = update(orig_dict.get(key, {}), val)
                 orig_dict[key] = tmp
             elif isinstance(val, list):
+                # FIXME we can't merge lists nicely
                 orig_dict[key] = (orig_dict[key] + val)
             else:
                 orig_dict[key] = new_dict[key]
@@ -62,10 +63,3 @@ def compose(*schema_urls):
 
     validator = Draft4Validator(result)
     return result
-
-def load_schema_from_url(schema_url):
-    with open(schema_url, "r") as schema_file:
-        schema = json.loads(schema_file.read())
-        validator = Draft4Validator(schema)
-
-    return schema
