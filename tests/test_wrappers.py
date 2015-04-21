@@ -200,6 +200,12 @@ def test_wrapper_composability():
 
         authors = Field(List, items=[Author])
 
+
+    record = Record({})
+    record.identifier = 2
+    assert record.identifier == 2
+    assert record.__storage__['identifier'] == 2
+
     record = Record({
         'identifier': 1,
         'title': 'Test',

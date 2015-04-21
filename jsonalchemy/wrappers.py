@@ -30,60 +30,15 @@ from six import iteritems, add_metaclass
 from .utils import load_schema_from_url
 
 
-class Wrapper(object):
+class Field(object):
 
-    def __init__(self, schema, data):
-        self.schema = schema
-        self.data = data
+    def __init__(self, field_type, *args, **kwargs):
+        self.field_type = field_type
+        self.args = args
+        self.kwargs = kwargs
 
-    def __eq__(self, other):
-        return self.data == other
-
-    def __le__(self, other):
-        return self.data <= other
-
-    def __lt__(self, other):
-        return self.data < other
-
-    def __gt__(self, other):
-        return self.data > other
-
-    def __ge__(self, other):
-        return self.data >= other
-
-    def __getattr__(self, key):
-        try:
-            return self.data[key]
-        except KeyError:
-            return super(Wrapper, self).__getattr__(key)
-
-    def __setattr__(self, key, value):
-        if key in ('schema', 'data'):
-            super(Wrapper, self).__setattr__(key, value)
-        else:
-            if hasattr(self.__class__, key):
-                super(Wrapper, self).__setattr__(key, value)
-            else:
-                self.data[key] = getattr(self.schema, key)(value)
-
-    def __setitem__(self, key, value):
-        self.data[key] = getattr(self.schema, key)(value)
-
-    def __getitem__(self, index):
-        return self.data[index]
-
-    def __delitem__(self, index):
-        del self.data[index]
-
-    def __len__(self):
-        return len(self.data)
-
-    def __nonzero__(self):
-        return bool(self.data)
-
-    def append(self, value):
-        # FIXME Only list schema has attribute schema.
-        return self.data.append(self.schema.schema(value))
+    def __call__(self, document):
+        return self.field_type(document, *self.args, **self.kwargs)
 
 
 class MetaSchema(type):
@@ -91,36 +46,38 @@ class MetaSchema(type):
     __schema_registry__ = {}
 
     def __new__(cls, name, bases, attrs):
-        Meta = attrs.get('Meta', None)
-        if Meta:
-            schema_url = getattr(Meta, '__schema_url__', None)
-            if schema_url:
-                schema = load_schema_from_url(schema_url)
-                if hasattr(Meta, '__schema__'):
-                    raise RuntimeError()
-                setattr(Meta, '__schema__', schema)
-            else:
-                schema = getattr(Meta, '__schema__', {})
-            # TODO cls.__doc__ to title if not there
-            schema_type = schema.get('type', None)
-            if schema_type:
-                Meta = cls.__schema_registry__[schema_type].from_schema(Meta)
+        schema_url = attrs.get('__schema_url__', None)
+        if schema_url:
+            schema = load_schema_from_url(schema_url)
+            if '__schema__' in attrs:
+                raise RuntimeError()
+        else:
+            schema = attrs.get('__schema__', {})
 
-            # Check compatibility of JSON Schema type with my base classes.
-            if schema_type and not any(
-                    issubclass(cls.__schema_registry__[schema_type], base)
-                    for base in bases):
-                raise TypeError(
-                    'Type specified in the schema ("{0}") is not a subclass '
-                    'of any of {1}'.format(schema_type, bases))
+        # Store modification back in attributes.
+        attrs['__schema__'] = schema
 
-            if schema_type and not any(
-                    issubclass(base, cls.__schema_registry__[schema_type])
-                    for base in bases):
-                bases = (cls.__schema_registry__[schema_type], ) + bases
+        # TODO cls.__doc__ to title if not there
+        schema_type = schema.get('type', None)
+        if schema_type:
+            attrs = cls.__schema_registry__[schema_type].from_schema(attrs)
 
-            # Store modification back in attributes.
-            attrs['Meta'] = Meta
+        for base in bases:
+            if hasattr(base, 'from_schema'):
+                attrs = base.from_schema(attrs)
+
+        # Check compatibility of JSON Schema type with my base classes.
+        if schema_type and not any(
+                issubclass(cls.__schema_registry__[schema_type], base)
+                for base in bases):
+            raise TypeError(
+                'Type specified in the schema ("{0}") is not a subclass '
+                'of any of {1}'.format(schema_type, bases))
+
+        if schema_type and not any(
+                issubclass(base, cls.__schema_registry__[schema_type])
+                for base in bases):
+            bases = (cls.__schema_registry__[schema_type], ) + bases
 
         schema_class = super(MetaSchema, cls).__new__(cls, name, bases, attrs)
         schema_type = attrs.get('schema_type', None)
@@ -133,13 +90,9 @@ class MetaSchema(type):
 
         return schema_class
 
-    def __getattr__(cls, key):
-        try:
-            return super(MetaSchema, cls).__getattr__(key)
-        except AttributeError:
-            if hasattr(cls, 'Meta'):
-                return getattr(cls.Meta, key)
-            raise AttributeError
+    @property
+    def __schema__(cls):
+        return {'type': cls.schema_type}
 
 
 def create_type_from_schema(schema, bases=()):
@@ -164,79 +117,85 @@ def schema_to_type(schema):
 @add_metaclass(MetaSchema)
 class JSONBase(object):
 
-    def __call__(self, value):
-        wrapper_class = (
-            getattr(self.Meta, 'Wrapper', Wrapper)
-            if hasattr(self, 'Meta') else Wrapper
-        )
-        if isinstance(value, self.python_class):
-            return wrapper_class(self, value)
-        elif isinstance(value, wrapper_class):
-            return value
-        raise TypeError("'{0}' is not type of '{1}'".format(
-            value, self.python_class
-        ))
+    def __init__(self, value):
+        if not (isinstance(value, self.python_class) or
+                isinstance(value, self.__class__)):
+            raise TypeError("'{0}' is not type of '{1}'".format(
+                value, self.python_class
+            ))
 
-    def __getattr__(self, key):
-        try:
-            return super(JSONBase, self).__getattr__(key)
-        except AttributeError:
-            if hasattr(self, 'Meta'):
-                return getattr(self.Meta, key)
-            raise AttributeError
+        object.__setattr__(self, '__storage__', value)
+
+    def __eq__(self, value):
+        return self.__storage__ == value
+
+    def __len__(self):
+        return len(self.__storage__)
 
     @classmethod
-    def from_schema(cls, Meta):
-        return Meta
+    def from_schema(cls, attrs):
+        return attrs
 
 
 class Object(JSONBase):
 
     schema_type = 'object'
-    python_class = (dict,)
+    python_class = (dict, )
 
-    def __call__(self, value):
-        wrapped = super(Object, self).__call__(value)
-
+    def __init__(self, document):
         # FIXME remove when schema is enforced
-        if not hasattr(wrapped.schema, 'Meta'):
-            return wrapped
+        if getattr(self, '__schema__', {}).get('properties', None) is None:
+            return  # there is nothing for us to do without schema
 
-        for key, value in iteritems(wrapped.data):
-            if not hasattr(wrapped.schema.Meta, key):
-                raise
-            # recursively wrap all values
-            wrapped.data[key] = getattr(wrapped.schema.Meta, key)(value)
+        for key, value in iteritems(document):
+            field = getattr(self.__class__, key, None)
 
-        return wrapped
+            if not isinstance(field, Field):
+                raise RuntimeError("???")
 
-    def __new__(cls):
-        Meta = getattr(cls, 'Meta', None)
-        if Meta:
-            schema = getattr(Meta, '__schema__', {})
-            schema.setdefault('type', 'object')
-            schema.setdefault('properties', {})
+            document[key] = field(value)
+            object.__setattr__(self, key, document[key])
 
-            for name in dir(Meta):
-                attr = getattr(Meta, name)
-                if isinstance(attr, JSONBase):
-                    if hasattr(attr, '__schema__'):
-                        attr_schema = attr.__schema__
-                    else:
-                        attr_schema = {'type': attr.schema_type}
-                    schema['properties'][name] = attr_schema
+        super(Object, self).__init__(document)
 
-            Meta.__schema__ = schema
-            cls.Meta = Meta
+    def __setattr__(self, key, value):
+        field = getattr(self.__class__, key, None)
+        if field is not None:
+            self.__storage__[key] = field(value)
+        else:
+            self.__storage__[key] = value
+        object.__setattr__(self, key, self.__storage__[key])
 
-        return super(Object, cls).__new__(cls)
+    def __getattr__(self, key):
+        try:
+            return self.__storage__[key]
+        except KeyError:
+            return super(Object, self).__getattr__(key)
 
     @classmethod
-    def from_schema(cls, Meta):
-        for key, value in iteritems(Meta.__schema__.get('properties', {})):
-            setattr(Meta, key, schema_to_type(value))
+    def from_schema(cls, attrs):
+        schema = attrs.get('__schema__', {})
+        schema.setdefault('type', 'object')
 
-        return Meta
+        field_types = {name: attr.field_type for name, attr in iteritems(attrs)
+                       if isinstance(attr, Field)}
+
+        for key, value in iteritems(schema.get('properties', {})):
+            if key in attrs:
+                raise RuntimeError('Shall we continue?')
+                continue
+            attrs[key] = Field(schema_to_type(value))
+
+        for name, field_type in iteritems(field_types):
+            if hasattr(field_type, '__schema__'):
+                attr_schema = field_type.__schema__
+            else:
+                attr_schema = {'type': field_type.schema_type}
+            schema.setdefault('properties', {})
+            schema['properties'][name] = attr_schema
+
+        attrs['__schema__'] = schema
+        return attrs
 
 
 class List(JSONBase):
@@ -244,11 +203,15 @@ class List(JSONBase):
     schema_type = 'array'
     python_class = (list, tuple)
 
-    def __init__(self, schema=None):
-        if schema and isinstance(schema, type):
-            self.schema = schema()
-        else:
-            self.schema = schema
+    def __init__(self, document, *args, **kwargs):
+        items = kwargs.get('items', [])
+
+        if len(items) == 1:
+            document = [items[0](value) for value in document]
+        elif len(items) > 1:
+            raise NotImplemented("TODO multiple types")
+        super(List, self).__init__(document)
+
 
     def __call__(self, value):
         wrapped = super(List, self).__call__(value)
@@ -266,10 +229,6 @@ class String(JSONBase):
 
     schema_type = 'string'
     python_class = (str, unicode)
-
-    @classmethod
-    def from_schema(cls, Meta):
-        return Meta
 
 # TODO implement Datetime
 
