@@ -38,15 +38,14 @@ from helpers import abs_path
 def test_datetime():
     current_datetime = datetime.now()
 
-    class RecordMeta(JSONBase):
-        class Meta:
-            creation_date = types.DateTime()
+    class RecordBase(JSONBase):
+        creation_date = Field(types.DateTime)
 
-    class Record(RecordMeta()):
+    class EmptyRecord(RecordBase):
         def __init__(self, value=None):
-            super(Record, self).__init__(value or {})
+            super(EmptyRecord, self).__init__(value or {})
 
-    record = Record({})
+    record = EmptyRecord()
     record.creation_date = current_datetime
 
     assert isinstance(record.creation_date, datetime)
@@ -59,16 +58,13 @@ def test_datetime():
 def test_datetime_from_schema():
     current_datetime = datetime.now()
 
-    class RecordMeta(JSONBase):
-        class Meta:
-            __schema_url__ = abs_path('schemas/creation_date.json')
+    class EmptyRecord(JSONBase):
+        __schema_url__ = abs_path('schemas/creation_date.json')
 
         def __call__(self, value=None):
-            super(RecordMeta, self).__call__(value or {})
+            super(EmptyRecord, self).__call__(value or {})
 
-    Record = RecordMeta()
-
-    record = Record()
+    record = EmptyRecord()
     record.creation_date = current_datetime
 
     assert isinstance(record.creation_date, datetime)
@@ -80,35 +76,29 @@ def test_datetime_from_schema():
 
 def test_properties():
 
-    class RecordMeta(JSONBase):
+    class Record(JSONBase):
+        """Schema must contain all properties that should be dumped."""
+        __schema__ = factory.compose(
+            abs_path('schemas/mixin/keywords.json'),
+            abs_path('schemas/mixin/authors.json'),
+        )
 
-        class Meta:
-            """Schema must contain all properties that should be dumped."""
-            __schema__ = factory.compose(
-                abs_path('schemas/mixin/keywords.json'),
-                abs_path('schemas/mixin/authors.json'),
-            )
+        @property
+        def authors(self):
+            return [self.author] + list(self.other_authors)
 
-            class Wrapper(OrigWrapper):
+        @authors.setter
+        def authors(self, value):
+            self.author = value[0]
+            self.other_authors = value[1:]
 
-                @property
-                def authors(self):
-                    return [self.author] + list(self.other_authors)
+        @property
+        def first_keyword(self):
+            return self.keywords[0]
 
-                @authors.setter
-                def authors(self, value):
-                    self.author = value[0]
-                    self.other_authors = value[1:]
-
-                @property
-                def first_keyword(self):
-                    return self.keywords[0]
-
-                @property
-                def other_keywords(self):
-                    return self.keywords[1:]
-
-    Record = RecordMeta()
+        @property
+        def other_keywords(self):
+            return self.keywords[1:]
 
     record = Record({})
     record.keywords = ['first', 'second', 'other']

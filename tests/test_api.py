@@ -62,8 +62,7 @@ def test_invalid_schema():
 def test_meta():
     """Internal model structure when schema url is used."""
     class SimpleRecord(JSONBase):
-        class Meta:
-            __schema_url__ = abs_path('schemas/simple.json')
+        __schema_url__ = abs_path('schemas/simple.json')
 
     assert hasattr(SimpleRecord, '__schema__')
     assert hasattr(SimpleRecord, 'my_field')
@@ -72,14 +71,13 @@ def test_meta():
 def test_schema_dict():
     """Internal model structure when schema dict is used."""
     class SimpleRecord(JSONBase):
-        class Meta:
-            __schema__ = {
-                'title': 'Simple Schema',
-                'type': 'object',
-                'properties': {
-                    'my_field': {'type': 'string'}
-                },
-            }
+        __schema__ = {
+            'title': 'Simple Schema',
+            'type': 'object',
+            'properties': {
+                'my_field': {'type': 'string'}
+            },
+        }
 
     assert hasattr(SimpleRecord, '__schema__')
     assert hasattr(SimpleRecord, 'my_field')
@@ -88,26 +86,23 @@ def test_schema_dict():
 def test_type_from_schema():
     """Test type from schema."""
     class StringField(JSONBase):
-        class Meta:
-            __schema__ = {
-                'title': 'Test String Field',
-                'type': 'string',
-            }
+        __schema__ = {
+            'title': 'Test String Field',
+            'type': 'string',
+        }
 
     class ProperStringField(String):
-        class Meta:
-            __schema__ = {
-                'title': 'Proper String Field',
-                'type': 'string',
-            }
+        __schema__ = {
+            'title': 'Proper String Field',
+            'type': 'string',
+        }
 
     with pytest.raises(TypeError) as excinfo:
         class Mismatched(Object):
-            class Meta:
-                __schema__ = {
-                    'title': 'This is not a string Field',
-                    'type': 'string',
-                }
+            __schema__ = {
+                'title': 'This is not a string Field',
+                'type': 'string',
+            }
 
     test_string_field = StringField()
 
@@ -120,28 +115,23 @@ def test_type_from_schema():
 
 def test_recursive_type_creation():
 
-    class RecordMeta(Object):
-
-        class Meta:
-
-            __schema__ = {
-                'type': 'object',
-                'properties': {
-                    'identifier': {'type': 'integer'},
-                    'title': {'type': 'string'},
-                    'keywords': {'type': 'array', 'items': {
-                        'type': 'string',
-                    }},
-                    'author': {
-                        'type': 'object',
-                        'properties': {
-                            'full_name': {'type': 'string'},
-                        },
+    class Record(Object):
+        __schema__ = {
+            'type': 'object',
+            'properties': {
+                'identifier': {'type': 'integer'},
+                'title': {'type': 'string'},
+                'keywords': {'type': 'array', 'items': {
+                    'type': 'string',
+                }},
+                'author': {
+                    'type': 'object',
+                    'properties': {
+                        'full_name': {'type': 'string'},
                     },
                 },
-            }
-
-    Record = RecordMeta()
+            },
+        }
 
     record = Record({
         'identifier': 1,
@@ -178,15 +168,14 @@ def test_list_field():
 
 def test_default_value():
     """Test default value and __eq__ method."""
-    class FieldWithDefault(JSONBase):
-        class Meta:
-            __schema__ = {
-                'title': 'Field with default',
-                'type': 'string',
-                'default': 'foo',
-            }
+    class TypeWithDefault(JSONBase):
+        __schema__ = {
+            'title': 'Field with default',
+            'type': 'string',
+            'default': 'foo',
+        }
 
-    class FieldWithDefault2(String):
+    class TypeWithDefault2(String):
 
         """Field with default"""
 
@@ -194,13 +183,13 @@ def test_default_value():
         def default(cls):
             return 'foo'
 
-    assert hasattr(FieldWithDefault, '__schema__')
+    assert hasattr(TypeWithDefault, '__schema__')
 
-    field = FieldWithDefault({})
+    field = TypeWithDefault({})
     assert field == 'foo'
 
     class ModelWithDefaultField(JSONBase):
-        field = FieldWithDefault()
+        field = Field(TypeWithDefault)
 
     data = ModelWithDefaultField({})
     assert model.field == 'foo'
@@ -280,9 +269,8 @@ def test_simple_composability():
     Author = factory.model_factory(abs_path('schemas/compose/author.json'))
 
     class Record(Object):
-        class Meta:
-            title = Title
-            author = Author
+        title = Field(Title)
+        author = Field(Author)
 
     assert Record.title.__schema__ == Title.__schema__
     assert Record.author.__schema__ == Author.__schema__
@@ -299,16 +287,15 @@ def test_mixins():
     assert Author.__schema__['type'] == 'object'
 
     class Record(JSONBase):
-        class Meta:
-            __schema__ = factory.compose(
-                abs_path('schemas/mixin/title.json'),
-                abs_path('schemas/mixin/author.json')
-            )
+        __schema__ = factory.compose(
+            abs_path('schemas/mixin/title.json'),
+            abs_path('schemas/mixin/author.json')
+        )
 
     assert Record.title.__schema__ == Title.title.__schema__
     assert Record.author.__schema__ == Author.author.__schema__
 
-# TODO overlaping fields in mixins
+# TODO overlapping fields in mixins
 
 def test_array_clash_in_mixins():
     """Fail when array fields clash."""
@@ -318,8 +305,7 @@ def test_array_clash_in_mixins():
 
     with pytest.raises(RuntimeError) as excinfo:
         class MoreTitles(List):
-            class Meta:
-                __schema__ = factory.compose(
-                    abs_path('schemas/mixin/titles.json'),
-                    abs_path('schemas/mixin/titles.json')
-                )
+            __schema__ = factory.compose(
+                abs_path('schemas/mixin/titles.json'),
+                abs_path('schemas/mixin/titles.json')
+            )

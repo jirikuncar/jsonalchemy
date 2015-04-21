@@ -24,7 +24,7 @@ from __future__ import absolute_import
 import pytest
 
 from jsonalchemy.wrappers import (
-    JSONBase, Boolean, List, String, Object, Integer
+    JSONBase, Boolean, List, String, Object, Integer, Field
 )
 
 from helpers import abs_path
@@ -38,7 +38,7 @@ def test_forbiden_type_override():
 
 def test_simple_string_wrapper():
     """Test simple wrapping of String."""
-    author = String()
+    author = Field(String)
     ellis = author("Ellis, J")
 
     assert ellis == 'Ellis, J'
@@ -50,7 +50,7 @@ def test_simple_string_wrapper():
 
 def test_simple_list_wrapper():
     """Test simple wrapping of String."""
-    authors = List()
+    authors = Field(List, items=[String])
     nobles = authors(["Ellis, J", "Higgs, P"])
 
     assert len(nobles) == 2
@@ -63,9 +63,24 @@ def test_simple_list_wrapper():
 
     assert "is not type of" in str(excinfo.value)
 
+def test_mixed_list_wrapper():
+    """Test simple wrapping of String."""
+    authors = Field(List)  # any type
+    mixed_nobels = authors(["Ellis, J", "Higgs, P", 42, {"this": "that"}])
+
+    assert len(mixed_nobels) == 4
+
+    mix_tuple_nobles = authors(("Ellis, J", "Higgs, P", 42, {"this": "that"}))
+    assert len(mix_tuple_nobles) == 4
+
+    with pytest.raises(TypeError) as excinfo:
+        authors("Ellis, J")
+
+    assert "is not type of" in str(excinfo.value)
+
 def test_simple_integer_wrapper():
     """Test simple wrapping of String."""
-    identifier = Integer()
+    identifier = Field(Integer)
     my_id = identifier(1)
 
     assert my_id > 0
@@ -83,7 +98,7 @@ def test_simple_integer_wrapper():
 
 def test_simple_bool_wrapper():
     """Test simple wrapping of Boolean."""
-    flag = Boolean()
+    flag = Field(Boolean)
     my_flag = flag(True)
     assert my_flag
 
@@ -99,7 +114,7 @@ def test_simple_bool_wrapper():
 
 def test_simple_object_wrapper():
     """Test simple wrapping of String."""
-    author = Object()
+    author = Field(Object)
     ellis = author({
         "full_name": "Ellis, John R."
     })
@@ -116,18 +131,10 @@ def test_simple_object_wrapper():
 
 def test_wrapper_composability():
 
-    class RecordMeta(Object):
-
-        class Meta:
-
-            identifier = Integer()
-            title = String()
-            keywords = List()
-
-    Record = RecordMeta()
-
-    # assert set(Record.__schema__['properties'].keys()) == set(
-    #     ['identifier', 'title', 'keywords'])
+    class Record(Object):
+        identifier = Field(Integer)
+        title = Field(String)
+        keywords = Field(List)
 
     record = Record({
         'identifier': 1,
@@ -150,26 +157,15 @@ def test_wrapper_composability():
 
 def test_wrapper_recursive_composability():
 
-    class RecordMeta(Object):
+    class Record(Object):
+        identifier = Field(Integer)
+        title = Field(String)
+        keywords = Field(List)
 
-        class Meta:
+        class Author(Object):
+            full_name = Field(String)
 
-            identifier = Integer()
-            title = String()
-            keywords = List()
-
-            class Author(Object):
-
-                class Meta:
-
-                    full_name = String()
-
-            author = Author()
-
-    Record = RecordMeta()
-
-    # assert set(Record.__schema__['properties'].keys()) == set(
-    #     ['identifier', 'title', 'keywords'])
+        author = Field(Author)
 
     record = Record({
         'identifier': 1,
@@ -194,24 +190,15 @@ def test_wrapper_recursive_composability():
 
 def test_wrapper_composability():
 
-    class RecordMeta(Object):
+    class Record(Object):
+        identifier = Field(Integer)
+        title = Field(String)
+        keywords = Field(List)
 
-        class Meta:
+        class Author(Object):
+            full_name = Field(String)
 
-            identifier = Integer()
-            title = String()
-            keywords = List()
-
-            class Author(Object):
-
-                class Meta:
-
-                    full_name = String()
-
-            authors = List(Author)
-
-    Record = RecordMeta()
-
+        authors = Field(List, items=[Author])
 
     record = Record({
         'identifier': 1,
@@ -249,14 +236,10 @@ def test_wrapper_composability():
 
 def test_tricky_keys():
 
-    class DataMeta(Object):
+    class Data(Object):
+        schema = Field(String)
+        data = Field(String)
 
-        class Meta:
-
-            schema = String()
-            data = String()
-
-    Data = DataMeta()
     data = Data({'data': 'data', 'schema': 'schema'})
 
     assert data['data'] == 'data'
@@ -276,6 +259,5 @@ def test_tricky_keys():
 def test_schema_and_schema_url():
     with pytest.raises(RuntimeError) as excinfo:
         class TooManySchema(String):
-            class Meta:
-                __schema__ = { 'type': 'string' }
-                __schema_url__ = abs_path('schemas/compose/title.json')
+            __schema__ = { 'type': 'string' }
+            __schema_url__ = abs_path('schemas/compose/title.json')
