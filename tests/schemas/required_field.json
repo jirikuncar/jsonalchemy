@@ -1,0 +1,14 @@
+{
+    "title": "Test required field",
+    "type": "object",
+    "properties": {
+        "identifier": {
+            "type": "integer"
+        },
+        "my_field": {
+            "type": "string"
+        }
+    },
+    "additionalProperties": false,
+    "required": ["identifier"]
+}

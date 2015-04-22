@@ -1,0 +1,7 @@
+{
+  "title": "List schema",
+  "type": "array",
+  "items": {
+    "type": "string"
+  }
+}
