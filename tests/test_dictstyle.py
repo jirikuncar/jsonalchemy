@@ -21,6 +21,7 @@
 
 from __future__ import absolute_import
 
+import json
 import pytest
 
 from datetime import datetime
@@ -118,3 +119,101 @@ def test_complex_type_wrapping():
 
     assert data['authors'][0]['family_name'] == 'Ellis'
     assert isinstance(data['authors'], JSONList)
+
+def test_subclassing():
+    schema = load_schema_from_url(abs_path('schemas/complex.json'))
+
+    class Record(JSONDict):
+        pass
+
+    data = Record({
+        'authors': [{'family_name': 'Ellis'}]
+    }, schema=schema)
+
+    assert data['authors'][0]['family_name'] == 'Ellis'
+    assert isinstance(data['authors'], JSONList)
+
+
+def test_setting_callbacks():
+    schema = load_schema_from_url(abs_path('schemas/complex.json'))
+    fixture_data = {
+        'authors': [
+            {'family_name': 'Ellis'},
+            {'family_name': 'Higgs'},
+            {'family_name': 'guy'},
+        ],
+    }
+    fixture_callbacks = {
+        'authors': {
+            None: {
+                'family_name': lambda x: x.upper()
+            }
+        }
+    }
+
+    class Record(JSONDict):
+
+        __callbacks__ = fixture_callbacks
+
+    fixtures = [
+        JSONDict(fixture_data, schema=schema, callbacks=fixture_callbacks),
+        Record(fixture_data, schema=schema),
+    ]
+
+    for data in fixtures:
+        assert 'authors' in data.callbacks
+        assert None in data['authors'].callbacks
+        assert all('family_name' in author.callbacks and
+                   callable(author.callbacks['family_name'])
+                   for author in data['authors'])
+        assert data['authors'][0]['family_name'] == 'ELLIS'
+        assert data['authors'][-1]['family_name'] == 'GUY'
+
+
+def _test_subclassing():
+
+    class Record(JSONDict):
+
+        __key_wrappers__ = {
+            'authors': Authors,
+        }
+
+        @calculated(Authors)
+        def authors(self):
+            return [self['author']] + self['additional_authors']
+
+    class Authors(JSONList):
+
+        __item_wrappers__ = Author
+
+    class Author(JSONDict):
+
+        @property
+        def age(self):
+            return datetime.now() - self['birthday']
+
+        wrapper = getattr(self, '__key_wrappers__', {}).get(name, None)
+        if wrapper is not None:
+            value = wrapper(value)
+
+
+def _test_attaching():
+
+    def attach(cls, path, callback):
+
+        callbacks = getattr(cls, '__callbacks__', {})
+        if len(path) == 1:
+            callbacks[path[0]] = callback
+
+    @attach(Record, ['authors'])
+    def authors(self):
+        return [self['author']] + self['additional_authors']
+
+    @attach(Record, ['authors', None, 'age'])
+    def age(self):
+        return datetime.now() - self['birthday']
+
+    attach(Record, ['authors'], authors)
+
+
+    record['authors'][0]['age']

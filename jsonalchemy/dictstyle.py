@@ -16,27 +16,31 @@ def validate(data, schema, *args, **kwargs):
     return Draft4Validator(schema=schema, types=types).validate(data)
 
 
-def wrap(value, value_schema):
+def wrap(value, value_schema, callbacks=None):
     if value_schema:
         value_type = value_schema.get('type', '')
         if value_type == 'object':
             if not isinstance(value, JSONDict):
-                return JSONDict(value, value_schema)
+                return JSONDict(value, value_schema, callbacks)
         elif value_type == 'array':
             if not isinstance(value, JSONList):
-                return JSONList(value, value_schema)
+                return JSONList(value, value_schema, callbacks)
     return value
 
 
 class JSONDict(collections.Mapping):
 
-    def __init__(self, mapping=None, schema=None):
+    def __init__(self, mapping=None, schema=None, callbacks=None):
         self.schema = schema or {}
         mapping = mapping or {}
+        callbacks = callbacks or getattr(self.__class__, '__callbacks__', {})
+        self.callbacks = {}
+        self.callbacks.update(callbacks)
 
         properties = self.schema.get('properties', {})
         self.dict = {
-            name: wrap(value, properties.get(name, None))
+            name: wrap(value, properties.get(name, None),
+                       callbacks.get(name, None))
             for name, value in iteritems(mapping)
         }
 
@@ -52,6 +56,8 @@ class JSONDict(collections.Mapping):
         return value in self.dict
 
     def __getitem__(self, name):
+        if name in self.callbacks and callable(self.callbacks[name]):
+            return self.callbacks[name](self.dict[name])
         return self.dict[name]
 
     def __setitem__(self, name, value):
@@ -86,12 +92,17 @@ class JSONDict(collections.Mapping):
 
 class JSONList(collections.Iterable):
 
-    def __init__(self, iterable=None, schema=None):
+    def __init__(self, iterable=None, schema=None, callbacks=None):
         self.schema = schema or {}
         iterable = iterable or []
+        callbacks = callbacks or getattr(self.__class__, '__callbacks__', {})
+        self.callbacks = {}
+        self.callbacks.update(callbacks)
 
         value_schema = self.schema.get('items', None)
-        self.list = [wrap(value, value_schema) for value in iterable]
+        # FIXME callbacks per item
+        self.list = [wrap(value, value_schema, callbacks.get(None, None))
+                     for value in iterable]
 
         validate(self.list, self.schema)
 
